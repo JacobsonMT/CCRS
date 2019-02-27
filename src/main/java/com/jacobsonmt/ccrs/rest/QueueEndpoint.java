@@ -26,7 +26,7 @@ public class QueueEndpoint {
     public void createMockJobs() {
         for ( int i = 0; i < 10; i++ ) {
             log.info( i );
-            CCRSJob job = jobManager.createJob( "user" + i,
+            CCRSJob job = jobManager.createJob( "client" + i,
                     "label" + i,
                     "fasta content " + i,
                     "email" + 1,

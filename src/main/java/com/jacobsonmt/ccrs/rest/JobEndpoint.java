@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * Endpoints to access and submit jobs.
  *
- * TODO: Consider isolating users (clients) so that they cannot view each others jobs.
+ * TODO: Consider isolating clients so that they cannot view each others jobs.
  */
 @Log4j2
 @RequestMapping("/api/job")

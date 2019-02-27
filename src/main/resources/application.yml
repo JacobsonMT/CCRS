@@ -3,9 +3,9 @@ ccrs:
     client1:
       name: client1
       token: client1token
-      # Maximum number of jobs a user can have in the processing queue
+      # Maximum number of jobs a client can have in the processing queue
       process-limit: 2
-      # Maximum number of jobs a user can have in total (processing+user queue)
+      # Maximum number of jobs a client can have in total (processing+client queue)
       job-limit: 100
     client2:
       name: client2

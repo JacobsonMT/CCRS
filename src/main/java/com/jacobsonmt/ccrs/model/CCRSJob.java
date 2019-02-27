@@ -17,7 +17,7 @@ import java.util.concurrent.*;
 @Getter
 @Setter
 @Builder
-@ToString(of = {"jobId", "userId", "label", "hidden"})
+@ToString(of = {"jobId", "clientId", "label", "hidden"})
 @EqualsAndHashCode(of = {"jobId"})
 public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
 
@@ -31,7 +31,7 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
     private String jobSerializationFilename;
 
     // Information on creation of job
-    private String userId;
+    private String clientId;
     private String jobId;
     private String label;
     private transient String inputFASTAContent;
@@ -64,7 +64,7 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
 
         try {
 
-            log.info( "Starting job (" + label + ") for user: (" + userId + ")" );
+            log.info( "Starting job (" + label + ") for client: (" + clientId + ")" );
 
             this.running = true;
             this.status = "Processing";
@@ -97,7 +97,7 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
 
             this.result = new CCRSJobResult( resultCSV );
             this.status = "Completed in " + executionTime + "s";
-            log.info( "Finished job (" + label + ") for user: (" + userId + ")" );
+            log.info( "Finished job (" + label + ") for client: (" + clientId + ")" );
             this.running = false;
             this.complete = true;
 
