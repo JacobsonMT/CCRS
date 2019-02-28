@@ -61,16 +61,12 @@ public class JobEndpoint {
 
     @RequestMapping(value = "/submit", method = RequestMethod.POST, produces = {MediaType.APPLICATION_JSON_VALUE})
     public Map<String,Object> submitJob( @Valid @RequestBody JobSubmissionContent jobSubmissionContent, HttpServletRequest request) {
-        String ipAddress = request.getHeader( "X-FORWARDED-FOR" );
-        if ( ipAddress == null ) {
-            ipAddress = request.getRemoteAddr();
-        }
-
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
 
         CCRSJob job = jobManager.createJob(
                 client,
+                jobSubmissionContent.userId,
                 jobSubmissionContent.label,
                 jobSubmissionContent.fastaContent,
                 jobSubmissionContent.email,
@@ -130,6 +126,8 @@ public class JobEndpoint {
     private static final class JobSubmissionContent {
         @NotBlank(message = "Label missing!")
         private final String label;
+        @NotBlank(message = "User missing!")
+        private final String userId;
         @NotBlank(message = "FASTA content missing!")
         private final String fastaContent;
         private final String email;

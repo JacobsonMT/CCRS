@@ -17,7 +17,7 @@ import java.util.concurrent.*;
 @Getter
 @Setter
 @Builder
-@ToString(of = {"jobId", "clientId", "label", "hidden"})
+@ToString(of = {"jobId", "clientId", "userId", "label", "hidden"})
 @EqualsAndHashCode(of = {"jobId"})
 public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
 
@@ -32,6 +32,7 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
 
     // Information on creation of job
     private String clientId;
+    private String userId;
     private String jobId;
     private String label;
     private transient String inputFASTAContent;
@@ -162,6 +163,7 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
     @AllArgsConstructor
     public static final class CCRSJobVO {
         private final String jobId;
+        private final String clientId;
         private final String label;
         private final String status;
         private final boolean running;
@@ -177,7 +179,7 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
     }
 
     public CCRSJobVO toValueObject( boolean obfuscateEmail) {
-        return new CCRSJobVO( jobId, label, status, running, failed, complete, position,
+        return new CCRSJobVO( jobId, clientId, label, status, running, failed, complete, position,
                 obfuscateEmail ? email.replaceAll("(\\w{0,3})(\\w+.*)(@.*)", "$1****$3") :  email,
                 hidden, submittedDate, startedDate, finishedDate, result );
     }

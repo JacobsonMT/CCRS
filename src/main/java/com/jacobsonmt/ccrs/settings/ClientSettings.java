@@ -26,6 +26,8 @@ public class ClientSettings {
         private String token;
         private int processLimit = 2;
         private int jobLimit = 100;
+        private int userClientLimit = 1;
+        private int userJobLimit = 20;
 
     }
 }

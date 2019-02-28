@@ -49,6 +49,13 @@ public class JobManager {
     // Secondary client queues or waiting lines. One specific to each client.
     private Map<String, Queue<CCRSJob>> clientQueues = new ConcurrentHashMap<>();
 
+    // Tertiary user queues or waiting lines. One specific to each user in each client.
+    private Map<String, Queue<CCRSJob>> userQueues = new ConcurrentHashMap<>();
+
+    private static String userQueueKey(CCRSJob job) {
+        return job.getClientId() + "-" + job.getUserId();
+    }
+
     // Contains map of token to saved job for future viewing
     private final Map<String, CCRSJob> savedJobs = new ConcurrentHashMap<>();
 
@@ -138,7 +145,8 @@ public class JobManager {
     /**
      * Create job with specified parameters but do not submit it to any queue.
      *
-     * @param clientId Owner of the job.
+     * @param clientId Client of the job.
+     * @param userId User from client.
      * @param label Short label/name for the job.
      * @param inputFASTAContent Input data used to run the job.
      * @param email Email to be used for notifications if enabled.
@@ -146,6 +154,7 @@ public class JobManager {
      * @return Created job.
      */
     public CCRSJob createJob( String clientId,
+                              String userId,
                               String label,
                               String inputFASTAContent,
                               String email,
@@ -165,6 +174,7 @@ public class JobManager {
 
         // User Inputs
         jobBuilder.clientId( clientId );
+        jobBuilder.userId( userId );
         jobBuilder.label( Strings.isNotBlank( label ) ? label : "unnamed" );
         jobBuilder.inputFASTAContent( inputFASTAContent );
         jobBuilder.hidden( hidden );
@@ -183,7 +193,8 @@ public class JobManager {
      */
     private void submitToProcessQueue( CCRSJob job ) {
         synchronized ( jobQueueMirror ) {
-            log.info( "Submitting job (" + job.getJobId() + ") for client: (" + job.getClientId() + ") to process queue" );
+            log.info( "Submitting job (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ") to process queue" );
+            job.setSubmittedDate( new Date() );
             job.setJobManager( this );
 
             jobQueueMirror.add( job );
@@ -196,39 +207,12 @@ public class JobManager {
     }
 
     /**
-     * Add job to personal queue of owning client if there is room in their total job allocation limit.
-     *
-     * @param job
-     */
-    private void submitToClientQueue( CCRSJob job ) {
-        log.info( "Submitting job (" + job.getJobId() + ") for client: (" + job.getClientId() + ") to client queue" );
-
-        Queue<CCRSJob> jobs = clientQueues.computeIfAbsent( job.getClientId(), k -> new LinkedList<>() );
-
-        if ( jobs.size() > clientSettings.getClients().get( job.getClientId() ).getJobLimit() ) {
-            log.info( "Too many jobs (" + job.getJobId() + ") for client: (" + job.getClientId() + ")");
-            return;
-        }
-
-        synchronized ( jobs ) {
-
-            if ( !jobs.contains( job ) ) {
-                jobs.add( job );
-                job.setStatus( "Pending" );
-                saveJob( job );
-                submitJobFromClientQueue( job.getClientId() );
-            }
-        }
-    }
-
-
-    /**
-     * For a specific client, submit a single job from their personal queue to the process queue if there is room left in their
+     * For a specific client, submit the job at the top of their personal queue to the process queue if there is room left in their
      * allocated process queue limit.
      *
      * @param clientId specific client
      */
-    private void submitJobFromClientQueue( String clientId ) {
+    private void submitTopOfClientQueue( String clientId ) {
         int cnt = 0;
         synchronized ( jobQueueMirror ) {
 
@@ -247,12 +231,97 @@ public class JobManager {
                     job = jobs.poll();
                 }
                 if ( job != null ) {
-                    job.setSubmittedDate( new Date() );
                     submitToProcessQueue( job );
                 }
             }
         }
 
+    }
+
+    /**
+     * Add job to personal queue of owning client if there is room in their total job allocation limit.
+     *
+     * @param job
+     */
+    private void submitToClientQueue( CCRSJob job ) {
+        log.info( "Submitting job (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ") to client queue" );
+
+        Queue<CCRSJob> jobs = clientQueues.computeIfAbsent( job.getClientId(), k -> new LinkedList<>() );
+
+        if ( jobs.size() > clientSettings.getClients().get( job.getClientId() ).getJobLimit() ) {
+            log.info( "Too many jobs (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ")");
+            return;
+        }
+
+        synchronized ( jobs ) {
+
+            if ( !jobs.contains( job ) ) {
+                jobs.add( job );
+                job.setStatus( "Pending..." );
+                submitTopOfClientQueue( job.getClientId() );
+            }
+        }
+    }
+
+    /**
+     * For a specific user, submit the job at the top of their personal queue to their owning client queue
+     * if there is room left in their allocated client queue limit.
+     *
+     * @param userQueueKey key to user queue map for user
+     */
+    private void submitTopOfUserQueue( String userQueueKey ) {
+
+        Queue<CCRSJob> jobs = userQueues.get( userQueueKey );
+
+        if ( jobs != null ) {
+            CCRSJob job = jobs.peek();
+
+            if ( job != null ) {
+
+                Queue<CCRSJob> clientQueue = clientQueues.computeIfAbsent( job.getClientId(), k -> new LinkedList<>() );
+
+                int cnt = 0;
+                synchronized ( clientQueue ) {
+
+                    for ( CCRSJob j : clientQueue ) {
+                        if ( j.getUserId().equals( job.getUserId() ) ) cnt++;
+                    }
+                }
+
+                if ( cnt < clientSettings.getClients().get( job.getClientId() ).getUserClientLimit() ) {
+                    synchronized ( jobs ) {
+                        job = jobs.poll();
+                    }
+                    submitToClientQueue( job );
+                }
+            }
+        }
+    }
+
+    /**
+     * Add job to personal queue of owning user if there is room in their total job allocation limit.
+     *
+     * @param job
+     */
+    private void submitToUserQueue( CCRSJob job ) {
+        log.info( "Submitting job (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ") to user queue" );
+
+        Queue<CCRSJob> jobs = userQueues.computeIfAbsent( userQueueKey(job), k -> new LinkedList<>() );
+
+        if ( jobs.size() > clientSettings.getClients().get( job.getClientId() ).getUserJobLimit() ) {
+            log.info( "Too many jobs (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ")");
+            return;
+        }
+
+        synchronized ( jobs ) {
+
+            if ( !jobs.contains( job ) ) {
+                jobs.add( job );
+                job.setStatus( "Pending" );
+                saveJob( job );
+                submitTopOfUserQueue( userQueueKey(job) );
+            }
+        }
     }
 
     /**
@@ -280,7 +349,7 @@ public class JobManager {
             }
         }
 
-        submitToClientQueue( job );
+        submitToUserQueue( job );
 
         return "";
     }
@@ -343,7 +412,7 @@ public class JobManager {
         }
 
         // Add new job for given client
-        submitJobFromClientQueue( job.getClientId() );
+        submitTopOfClientQueue( job.getClientId() );
         log.info( String.format( "Jobs in queue: %d", jobQueueMirror.size() ) );
     }
 
@@ -351,6 +420,19 @@ public class JobManager {
         return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
                 .distinct()
                 .filter( j -> !j.isHidden() )
+                .map( j -> j.toValueObject( true ) )
+                .sorted(
+                        Comparator.comparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
+                                .thenComparing(CCRSJob.CCRSJobVO::getSubmittedDate, Comparator.nullsLast(Date::compareTo).reversed())
+                                .thenComparing(CCRSJob.CCRSJobVO::getStatus, String::compareToIgnoreCase)
+                )
+                .collect( Collectors.toList() );
+    }
+
+    public List<CCRSJob.CCRSJobVO> listJobsForClient(String clientId) {
+        return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
+                .distinct()
+                .filter( j -> j.getClientId().equals( clientId ) )
                 .map( j -> j.toValueObject( true ) )
                 .sorted(
                         Comparator.comparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
