@@ -442,5 +442,19 @@ public class JobManager {
                 .collect( Collectors.toList() );
     }
 
+    public List<CCRSJob.CCRSJobVO> listJobsForClientAndUser(String clientId, String userId) {
+        return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
+                .distinct()
+                .filter( j -> j.getClientId().equals( clientId ) && j.getUserId().equals( userId ) )
+                .map( j -> j.toValueObject( true ) )
+                .sorted(
+                        Comparator.comparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
+                                .thenComparing(CCRSJob.CCRSJobVO::getSubmittedDate, Comparator.nullsLast(Date::compareTo).reversed())
+                                .thenComparing(CCRSJob.CCRSJobVO::getStatus, String::compareToIgnoreCase)
+                )
+                .collect( Collectors.toList() );
+    }
+
+
 
 }

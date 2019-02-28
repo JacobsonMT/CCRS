@@ -24,16 +24,26 @@ public class QueueEndpoint {
     private JobManager jobManager;
 
     @RequestMapping(value = "/public", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public List<CCRSJob.CCRSJobVO> getJob() {
+    public List<CCRSJob.CCRSJobVO> getJobs() {
         return jobManager.listPublicJobs();
     }
 
     @RequestMapping(value = "/client/{clientId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public List<CCRSJob.CCRSJobVO> getJob( @PathVariable String clientId ) {
+    public List<CCRSJob.CCRSJobVO> getJobs( @PathVariable String clientId ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
         if ( client.equals( clientId ) || client.equals( "admin" ) ) {
             return jobManager.listJobsForClient(clientId);
+        }
+        return new ArrayList<>();
+    }
+
+    @RequestMapping(value = "/client/{clientId}/user/{userId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
+    public List<CCRSJob.CCRSJobVO> getJobs( @PathVariable String clientId, @PathVariable String userId  ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String client = authentication.getName();
+        if ( client.equals( clientId ) || client.equals( "admin" ) ) {
+            return jobManager.listJobsForClientAndUser(clientId, userId);
         }
         return new ArrayList<>();
     }
