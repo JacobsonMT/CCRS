@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -60,7 +61,7 @@ public class JobEndpoint {
     }
 
     @RequestMapping(value = "/submit", method = RequestMethod.POST, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public Map<String,Object> submitJob( @Valid @RequestBody JobSubmissionContent jobSubmissionContent, HttpServletRequest request) {
+    public ResponseEntity<Map<String,Object>> submitJob( @Valid @RequestBody JobSubmissionContent jobSubmissionContent, HttpServletRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
 
@@ -75,13 +76,14 @@ public class JobEndpoint {
         LinkedHashMap<String, Object> response = new LinkedHashMap<>();
 
         String msg = jobManager.submit( job );
+        HttpStatus status = msg.isEmpty() ? HttpStatus.ACCEPTED : HttpStatus.BAD_REQUEST;
         msg = msg.isEmpty() ? "Submitted" : msg;
 
         response.put( "message", msg );
         response.put( "jobId", job.getJobId() );
 
         log.info( "Job " + msg + ": " + job.getJobId() );
-        return response;
+        return ResponseEntity.status( status ).body(response);
 
     }
 
