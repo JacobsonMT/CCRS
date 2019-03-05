@@ -1,6 +1,7 @@
 package com.jacobsonmt.ccrs.services;
 
 import com.jacobsonmt.ccrs.model.CCRSJob;
+import com.jacobsonmt.ccrs.settings.ApplicationSettings;
 import com.jacobsonmt.ccrs.settings.SiteSettings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -22,6 +23,9 @@ public class EmailService {
     @Autowired
     SiteSettings siteSettings;
 
+    @Autowired
+    ApplicationSettings applicationSettings;
+
     private void sendMessage( String subject, String content, String to ) throws MessagingException {
         sendMessage( subject, content, to, null );
     }
@@ -41,7 +45,9 @@ public class EmailService {
             helper.addAttachment( attachment.getOriginalFilename(), attachment );
         }
 
-        emailSender.send( message );
+        if ( !applicationSettings.isDisableEmails() ) {
+            emailSender.send( message );
+        }
 
     }
 
