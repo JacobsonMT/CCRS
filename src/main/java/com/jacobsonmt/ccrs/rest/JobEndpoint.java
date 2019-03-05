@@ -1,6 +1,8 @@
 package com.jacobsonmt.ccrs.rest;
 
+import com.jacobsonmt.ccrs.exceptions.FASTAValidationException;
 import com.jacobsonmt.ccrs.model.CCRSJob;
+import com.jacobsonmt.ccrs.model.FASTASequence;
 import com.jacobsonmt.ccrs.services.JobManager;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -17,8 +19,8 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Endpoints to access and submit jobs.
@@ -65,24 +67,53 @@ public class JobEndpoint {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
 
-        CCRSJob job = jobManager.createJob(
-                client,
-                jobSubmissionContent.userId,
-                jobSubmissionContent.label,
-                jobSubmissionContent.fastaContent,
-                jobSubmissionContent.email,
-                jobSubmissionContent.hidden );
-
         LinkedHashMap<String, Object> response = new LinkedHashMap<>();
 
-        String msg = jobManager.submit( job );
-        HttpStatus status = msg.isEmpty() ? HttpStatus.ACCEPTED : HttpStatus.BAD_REQUEST;
-        msg = msg.isEmpty() ? "Submitted" : msg;
+        Set<FASTASequence> sequences;
+        HttpStatus status = HttpStatus.ACCEPTED;
+        String msg = "";
+        //TODO: Feels like this section is doing too much important stuff for just an endpoint? maybe refactor to JobManager or something
+        try {
+            sequences = FASTASequence.parseFASTAContent( jobSubmissionContent.fastaContent );
+            List<CCRSJob> jobs = new ArrayList<>();
+            for ( FASTASequence sequence : sequences ) {
+                CCRSJob job = jobManager.createJob(
+                        client,
+                        jobSubmissionContent.userId,
+                        jobSubmissionContent.label + (sequences.size() > 1 ? ( jobSubmissionContent.label.isEmpty() ? "" : " - ") + sequence.getHeader() : ""),
+                        sequence.getFASTAContent(),
+                        jobSubmissionContent.email,
+                        jobSubmissionContent.hidden );
+
+                if ( sequence.getValidationStatus().isEmpty() ) {
+                    jobManager.submit( job );
+                    log.info( "Job submitted: " + job.getJobId() );
+                } else {
+                    job.setComplete( true );
+                    job.setFailed( true );
+                    job.setStatus( sequence.getValidationStatus() );
+                    jobManager.saveJob( job ); //TODO: Feels hacky
+                    log.info( "Validation error: " + job.getJobId() + " - " + job.getStatus() );
+                    msg = "Validation error(s)";
+                }
+
+                jobs.add( job );
+
+            }
+
+            long errorCnt = sequences.stream().filter( s -> !s.getValidationStatus().isEmpty() ).count();
+            if ( errorCnt > 0) {
+                msg = errorCnt + " job(s) had a validation error";
+            }
+            response.put( "jobIds", jobs.stream().map( CCRSJob::getJobId ).collect( Collectors.toList() ) );
+
+        } catch ( FASTAValidationException e ) {
+            status = HttpStatus.BAD_REQUEST;
+            msg = e.getMessage();
+        }
 
         response.put( "message", msg );
-        response.put( "jobId", job.getJobId() );
 
-        log.info( "Job " + msg + ": " + job.getJobId() );
         return ResponseEntity.status( status ).body(response);
 
     }
@@ -126,7 +157,6 @@ public class JobEndpoint {
     @Getter
     @AllArgsConstructor
     private static final class JobSubmissionContent {
-        @NotBlank(message = "Label missing!")
         private final String label;
         @NotBlank(message = "User missing!")
         private final String userId;

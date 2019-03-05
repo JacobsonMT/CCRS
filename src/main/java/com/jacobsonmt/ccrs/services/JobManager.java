@@ -332,15 +332,6 @@ public class JobManager {
      */
     public String submit( CCRSJob job ) {
 
-        boolean validation = validateJob( job );
-
-        if ( !validation ) {
-            job.setComplete( true );
-            job.setFailed( true );
-            job.setStatus( "Validation Failed" );
-            return "Validation Failed";
-        }
-
         if ( applicationSettings.isEmailOnJobSubmitted() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
             try {
                 emailService.sendJobSubmittedMessage( job );
@@ -363,15 +354,11 @@ public class JobManager {
         return job;
     }
 
-    private void saveJob( CCRSJob job ) {
+    public void saveJob( CCRSJob job ) {
         synchronized ( savedJobs ) {
             job.setSaved( true );
             savedJobs.put( job.getJobId(), job );
         }
-    }
-
-    private boolean validateJob( CCRSJob job ) {
-        return Strings.isNotBlank( job.getInputFASTAContent() );
     }
 
     public void onJobStart( CCRSJob job ) {
