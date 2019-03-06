@@ -29,7 +29,7 @@ public class FASTASequence {
     private static final int MAXIMUM_SEQUENCE_SIZE = 2000;
 
     public String getFASTAContent() {
-        return header + '\r' + '\n' + sequence;
+        return header  + '\n' + sequence + '\n';
     }
 
     public static Set<FASTASequence> parseFASTAContent( String fasta ) throws FASTAValidationException {
