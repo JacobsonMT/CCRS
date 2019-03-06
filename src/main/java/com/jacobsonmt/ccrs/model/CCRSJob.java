@@ -88,7 +88,8 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
             StopWatch sw = new StopWatch();
             sw.start();
             String[] commands = {command, inputFASTAFilename};
-            executeCommand( commands, jobsDirectory );
+            String output = executeCommand( commands, jobsDirectory );
+            log.debug( output );
             sw.stop();
             this.executionTime = sw.getTotalTimeMillis() / 1000;
             this.finishedDate =  new Date();
@@ -129,19 +130,36 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
 
         StringBuffer output = new StringBuffer();
 
-        Process p;
         try {
-            p = Runtime.getRuntime().exec( command, null, path.toFile() );
-            p.waitFor();
+            ProcessBuilder builder = new ProcessBuilder( command )
+                    .directory( path.toFile() );
+//            builder.redirectErrorStream();
+
+
+//            Process p = Runtime.getRuntime().exec( command, null, path.toFile() );
+            Process p = builder.start();
+
             BufferedReader reader = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
 
             String line = "";
             while ( ( line = reader.readLine() ) != null ) {
                 output.append( line + "\r\n" );
+                log.debug(line);
             }
 
+            reader = new BufferedReader( new InputStreamReader( p.getErrorStream() ) );
+
+            while ( ( line = reader.readLine() ) != null ) {
+                output.append( line + "\r\n" );
+                log.debug(line);
+            }
+
+
+            p.waitFor();
+//            reader.close();
+
         } catch ( Exception e ) {
-            e.printStackTrace();
+            log.error(e);
         }
 
         return output.toString();
