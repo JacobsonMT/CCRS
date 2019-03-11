@@ -441,6 +441,7 @@ public class JobManager {
 
         // Add new job for given client
         submitTopOfClientQueue( job.getClientId() );
+        submitTopOfUserQueue( userQueueKey( job ) );
         log.info( String.format( "Jobs in queue: %d", jobQueueMirror.size() ) );
     }
 
