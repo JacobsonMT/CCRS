@@ -63,6 +63,8 @@ public class JobManager {
     // Used to periodically purge the old saved jobs
     private ScheduledExecutorService scheduler;
 
+    private static final int MAX_DEFAULT_LABEL_SIZE = 20;
+
     /**
      * Initialize Job Manager:
      *
@@ -149,7 +151,7 @@ public class JobManager {
      * @param clientId Client of the job.
      * @param userId User from client.
      * @param label Short label/name for the job.
-     * @param inputFASTAContent Input data used to run the job.
+     * @param sequence Input sequence data used to run the job.
      * @param email Email to be used for notifications if enabled.
      * @param hidden Is job private.
      * @return Created job.
@@ -157,7 +159,7 @@ public class JobManager {
     public CCRSJob createJob( String clientId,
                               String userId,
                               String label,
-                              String inputFASTAContent,
+                              FASTASequence sequence,
                               String email,
                               boolean hidden ) {
         CCRSJob.CCRSJobBuilder jobBuilder = CCRSJob.builder();
@@ -176,8 +178,9 @@ public class JobManager {
         // User Inputs
         jobBuilder.clientId( clientId );
         jobBuilder.userId( userId );
-        jobBuilder.label( Strings.isNotBlank( label ) ? label : "unnamed" );
-        jobBuilder.inputFASTAContent( inputFASTAContent );
+        jobBuilder.label( Strings.isNotBlank( label ) ? label :
+                sequence.getHeader().substring( 0, Math.min( sequence.getHeader().length(), MAX_DEFAULT_LABEL_SIZE ) ) );
+        jobBuilder.inputFASTAContent( sequence.getFASTAContent() );
         jobBuilder.hidden( hidden );
         jobBuilder.email( email );
 
@@ -200,7 +203,7 @@ public class JobManager {
                     clientId,
                     userId,
                     label,
-                    sequence.getFASTAContent(),
+                    sequence,
                     email,
                     hidden );
 

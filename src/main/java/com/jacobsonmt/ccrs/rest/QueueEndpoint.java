@@ -1,6 +1,7 @@
 package com.jacobsonmt.ccrs.rest;
 
 import com.jacobsonmt.ccrs.model.CCRSJob;
+import com.jacobsonmt.ccrs.model.FASTASequence;
 import com.jacobsonmt.ccrs.services.JobManager;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +59,7 @@ public class QueueEndpoint {
                     CCRSJob job = jobManager.createJob( "client" + (1 + i % 2),
                             "user" + j,
                             i + "label" + j,
-                            i + " fasta content " + j,
+                            new FASTASequence( "Mock Header", i + " fasta content " + j, "" ) ,
                             i + "email" + j,
                             i % 3 == 0 );
                     jobManager.submit( job );
