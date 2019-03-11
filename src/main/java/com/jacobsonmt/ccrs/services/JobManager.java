@@ -211,6 +211,7 @@ public class JobManager {
                 job.setComplete( true );
                 job.setFailed( true );
                 job.setStatus( sequence.getValidationStatus() );
+                saveJob( job ); // So the job's validation status can be queried
                 log.info( "Validation error: " + job.getJobId() + " - " + job.getStatus() );
             }
 
