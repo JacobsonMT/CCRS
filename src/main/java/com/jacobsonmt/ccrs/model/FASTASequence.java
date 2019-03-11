@@ -2,12 +2,12 @@ package com.jacobsonmt.ccrs.model;
 
 import com.jacobsonmt.ccrs.exceptions.FASTAValidationException;
 import com.jacobsonmt.ccrs.exceptions.SequenceValidationException;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.util.Strings;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -15,21 +15,24 @@ import java.util.stream.Collectors;
 @Getter
 @Setter
 @RequiredArgsConstructor
-@EqualsAndHashCode( of = "header" )
+@AllArgsConstructor
+@EqualsAndHashCode
+@ToString
+@Log4j2
 public class FASTASequence {
 
     private final String header;
-    private final String sequence;
+    private String sequence;
     private String validationStatus = "";
 
     public static final Set<Character> VALID_CHARACTERS = "QACDEFGHIKLMNPWRSTVYUOBJZ*X-.".chars()
             .mapToObj( e -> ( char ) e ).collect( Collectors.toSet() );
 
-    private static final int MINIMUM_SEQUENCE_SIZE = 26;
-    private static final int MAXIMUM_SEQUENCE_SIZE = 2000;
+    public static final int MINIMUM_SEQUENCE_SIZE = 26;
+    public static final int MAXIMUM_SEQUENCE_SIZE = 2000;
 
     public String getFASTAContent() {
-        return header  + '\n' + sequence + '\n';
+        return ">" + header + '\n' + sequence + '\n';
     }
 
     public static Set<FASTASequence> parseFASTAContent( String fasta ) throws FASTAValidationException {
@@ -44,24 +47,37 @@ public class FASTASequence {
             }
 
             Set<FASTASequence> sequences = new LinkedHashSet<>();
+            Set<String> headers = new HashSet<>();
 
-            String[] lines = fasta.split( "\\r?\\n" );
+            String[] sequenceStrings = fasta.split( "(^>)|(\\r?\\n>)" );
+            log.info( fasta );
+            log.info( Arrays.toString(sequenceStrings) );
 
-            if ( lines.length % 2 != 0 ) {
-                throw new FASTAValidationException( "Unmatched or missing header(s) and/or sequence(s)" );
+            //Throw out first entry as it necessarily doesn't start with a >
+            sequenceStrings[0] = "";
+
+            if ( sequenceStrings.length == 1 ) {
+                throw new FASTAValidationException( "Missing headers" );
             }
 
-            for ( int i = 0; i < lines.length; i += 2 ) {
+            for ( String sequenceString : sequenceStrings ) {
 
-                FASTASequence sequence = new FASTASequence( lines[i], lines[i + 1] );
+                if (sequenceString.isEmpty() ) {
+                    continue;
+                }
+
+                String[] separatedHeader = sequenceString.split( "\\r?\\n", 2 );
+
+                FASTASequence sequence = new FASTASequence( separatedHeader[0] );
 
                 try {
-
-                    if ( !sequence.getHeader().startsWith( ">" ) ) {
-                        throw new SequenceValidationException( "Malformed header: " + sequence.getHeader() );
+                    if ( separatedHeader.length == 1 ) {
+                        throw new SequenceValidationException( "Missing sequence: " + sequence.getHeader() );
                     }
 
-                    if ( sequences.contains( sequence ) ) {
+                    sequence.setSequence( separatedHeader[1].replaceAll( "\\r|\\n", "" ) );
+
+                    if ( headers.contains( sequence.getHeader() ) ) {
                         throw new SequenceValidationException( "Duplicate header line: " + sequence.getHeader() );
                     }
 
@@ -72,8 +88,6 @@ public class FASTASequence {
                     if ( sequence.getSequence().length() > MAXIMUM_SEQUENCE_SIZE ) {
                         throw new SequenceValidationException( "Sequence too long; maximum size is " + MAXIMUM_SEQUENCE_SIZE );
                     }
-
-//            if (!sequence.getSequence().matches( "^[\\QACDEFGHIKLMNPWRSTVYUOBJZ*X-.\\E]+$" )) {
 
                     int idx = 0;
                     for ( Character c : sequence.getSequence().toCharArray() ) {
@@ -88,7 +102,7 @@ public class FASTASequence {
                 }
 
                 sequences.add( sequence );
-
+                headers.add( sequence.getHeader() );
             }
 
             return sequences;
