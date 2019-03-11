@@ -2,6 +2,7 @@ package com.jacobsonmt.ccrs.services;
 
 import com.jacobsonmt.ccrs.model.CCRSJob;
 import com.jacobsonmt.ccrs.model.CCRSJobResult;
+import com.jacobsonmt.ccrs.model.FASTASequence;
 import com.jacobsonmt.ccrs.model.PurgeOldJobs;
 import com.jacobsonmt.ccrs.settings.ApplicationSettings;
 import com.jacobsonmt.ccrs.settings.ClientSettings;
@@ -184,6 +185,39 @@ public class JobManager {
 
     }
 
+    public List<CCRSJob> createJobs( String clientId,
+                                     String userId,
+                                     String label,
+                                     Set<FASTASequence> sequences,
+                                     String email,
+                                     boolean hidden ) {
+
+        List<CCRSJob> jobs = new ArrayList<>();
+
+
+        for ( FASTASequence sequence : sequences ) {
+            CCRSJob job = createJob(
+                    clientId,
+                    userId,
+                    label,
+                    sequence.getFASTAContent(),
+                    email,
+                    hidden );
+
+            if ( !sequence.getValidationStatus().isEmpty() ) {
+                job.setComplete( true );
+                job.setFailed( true );
+                job.setStatus( sequence.getValidationStatus() );
+                log.info( "Validation error: " + job.getJobId() + " - " + job.getStatus() );
+            }
+
+            jobs.add( job );
+
+        }
+
+        return jobs;
+    }
+
     /**
      * Submit job to executor for process queue.
      *
@@ -331,6 +365,10 @@ public class JobManager {
      * @return Message for things like validation failure.
      */
     public String submit( CCRSJob job ) {
+
+        if ( job.isComplete() || job.isFailed() || job.isRunning() ) {
+            return "Job already submitted.";
+        }
 
         if ( applicationSettings.isEmailOnJobSubmitted() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
             try {
