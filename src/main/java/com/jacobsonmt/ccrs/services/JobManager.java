@@ -230,6 +230,7 @@ public class JobManager {
             if ( !sequence.getValidationStatus().isEmpty() ) {
                 job.setComplete( true );
                 job.setFailed( true );
+                job.setPosition( null ); // Mainly for sort order in tables
                 job.setStatus( sequence.getValidationStatus() );
                 saveJob( job ); // So the job's validation status can be queried
                 log.info( "Validation error: " + job.getJobId() + " - " + job.getStatus() );
@@ -472,7 +473,8 @@ public class JobManager {
                 .filter( j -> !j.isHidden() )
                 .map( j -> j.toValueObject( true ) )
                 .sorted(
-                        Comparator.comparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
+                        Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
+                                .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
                                 .thenComparing(CCRSJob.CCRSJobVO::getSubmittedDate, Comparator.nullsLast(Date::compareTo).reversed())
                                 .thenComparing(CCRSJob.CCRSJobVO::getStatus, String::compareToIgnoreCase)
                 )
@@ -485,7 +487,8 @@ public class JobManager {
                 .filter( j -> j.getClientId().equals( clientId ) )
                 .map( j -> j.toValueObject( true ) )
                 .sorted(
-                        Comparator.comparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
+                        Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
+                                .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
                                 .thenComparing(CCRSJob.CCRSJobVO::getSubmittedDate, Comparator.nullsLast(Date::compareTo).reversed())
                                 .thenComparing(CCRSJob.CCRSJobVO::getStatus, String::compareToIgnoreCase)
                 )
@@ -498,7 +501,8 @@ public class JobManager {
                 .filter( j -> j.getClientId().equals( clientId ) && j.getUserId().equals( userId ) )
                 .map( j -> j.toValueObject( true ) )
                 .sorted(
-                        Comparator.comparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
+                        Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
+                                .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
                                 .thenComparing(CCRSJob.CCRSJobVO::getSubmittedDate, Comparator.nullsLast(Date::compareTo).reversed())
                                 .thenComparing(CCRSJob.CCRSJobVO::getStatus, String::compareToIgnoreCase)
                 )
