@@ -21,6 +21,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -59,6 +60,9 @@ public class JobManager {
 
     // Contains map of token to saved job for future viewing
     private final Map<String, CCRSJob> savedJobs = new ConcurrentHashMap<>();
+
+    // Stored approximate number of completed jobs for each clientId. Can be used to test when to update during polling.
+    private final Map<String, AtomicInteger> completionCounts = new ConcurrentHashMap<>();
 
     // Used to periodically purge the old saved jobs
     private ScheduledExecutorService scheduler;
@@ -524,10 +528,19 @@ public class JobManager {
             jobQueueMirror.remove( job );
         }
 
+        // Increment counts
+        completionCounts.putIfAbsent( job.getClientId(), new AtomicInteger( 0 ) );
+        completionCounts.get( job.getClientId() ).incrementAndGet();
+
         // Add new job for given client
         submitTopOfClientQueue( job.getClientId() );
         submitTopOfUserQueue( userQueueKey( job ) );
         log.info( String.format( "Jobs in queue: %d", jobQueueMirror.size() ) );
+    }
+
+    public int getCompletionCount(String clientId) {
+        AtomicInteger count = completionCounts.get( clientId );
+        return count == null ? 0 : count.get();
     }
 
     public List<CCRSJob.CCRSJobVO> listPublicJobs() {

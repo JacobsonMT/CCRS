@@ -24,6 +24,19 @@ public class QueueEndpoint {
     @Autowired
     private JobManager jobManager;
 
+    /**
+     * @return Approximate number of jobs that have completed for a client. Can be used to test when to update during polling.
+     */
+    @RequestMapping(value = "/client/{clientId}/complete", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
+    public Integer getCompletionCount( @PathVariable String clientId ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String client = authentication.getName();
+        if ( client.equals( clientId ) || client.equals( "admin" ) ) {
+            return jobManager.getCompletionCount(clientId);
+        }
+        return null;
+    }
+
     @RequestMapping(value = "/public", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
     public List<CCRSJob.CCRSJobVO> getJobs() {
         return jobManager.listPublicJobs();
