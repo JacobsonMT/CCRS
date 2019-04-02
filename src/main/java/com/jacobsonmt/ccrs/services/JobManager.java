@@ -260,7 +260,8 @@ public class JobManager {
             job.setPosition( (int) jobQueueMirror.stream().filter( j -> !j.isRunning() ).count() );
             job.setStatus( "Position: " + job.getPosition() );
 
-            executor.submit( job );
+            Future<CCRSJobResult> future = executor.submit( job );
+            job.setFuture( future );
 
         }
     }
@@ -422,6 +423,68 @@ public class JobManager {
             job.setSaved( true );
             savedJobs.put( job.getJobId(), job );
         }
+    }
+
+    private void removeSavedJob( CCRSJob job ) {
+        synchronized ( savedJobs ) {
+            savedJobs.remove( job.getJobId() );
+        }
+
+        // Delete serialization on disk
+        try {
+            Path serializedJob = job.getJobsDirectory().resolve( job.getJobSerializationFilename() );
+            Files.deleteIfExists( serializedJob );
+        } catch ( IOException e ) {
+            log.error(e);
+        }
+    }
+
+
+    public void stopJob( CCRSJob job ) {
+        log.info( "Requesting job stop (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ")" );
+        // Start at the lowest queue and work our way up to minimize race conditions
+
+        Queue<CCRSJob> jobs = userQueues.get( userQueueKey(job) );
+        if ( jobs != null ) {
+            synchronized ( jobs ) {
+                if ( jobs.contains( job ) ) {
+                    // Not yet submitted, just remove it from user queue
+                    jobs.remove( job );
+                }
+            }
+        }
+
+        jobs = clientQueues.get( job.getClientId() );
+        if ( jobs != null ) {
+            synchronized ( jobs ) {
+                if ( jobs.contains( job ) ) {
+                    // Not yet submitted, just remove it from client queue
+                    jobs.remove( job );
+                }
+            }
+        }
+
+        synchronized ( jobQueueMirror ) {
+            if ( jobQueueMirror.contains( job ) ) {
+                if ( job.isComplete() ) {
+                    jobQueueMirror.remove( job );
+                } else if ( job.isRunning() ) {
+                    // Disabled for now as it doesn't currently work if job is running
+//                    job.getFuture().cancel( true );
+//                    jobQueueMirror.remove( job );
+                } else {
+                    job.getFuture().cancel( true );
+                    jobQueueMirror.remove( job );
+                }
+            }
+        }
+
+        // Remove the job from saved cache no matter what so that it becomes inaccessible
+        removeSavedJob( job );
+
+        // Fix any gaps created in the queues, if there are no gaps these do nothing so safe to run in either case
+        submitTopOfClientQueue( job.getClientId() );
+        submitTopOfUserQueue( userQueueKey( job ) );
     }
 
     public void onJobStart( CCRSJob job ) {

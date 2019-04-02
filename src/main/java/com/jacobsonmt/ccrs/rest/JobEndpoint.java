@@ -108,6 +108,18 @@ public class JobEndpoint {
 
     }
 
+    @GetMapping("/{jobId}/delete")
+    public ResponseEntity<String> stopJob( @PathVariable("jobId") String jobId) {
+        CCRSJob job = jobManager.getSavedJob( jobId );
+
+        // test for not null and complete
+        if ( job != null ) {
+            jobManager.stopJob( job );
+            return ResponseEntity.ok("Job Deleted");
+        }
+        return ResponseEntity.badRequest().body( "" );
+    }
+
     @GetMapping("/{jobId}/resultCSV")
     public ResponseEntity<String> jobResultCSV( @PathVariable("jobId") String jobId) {
         CCRSJob job = jobManager.getSavedJob( jobId );

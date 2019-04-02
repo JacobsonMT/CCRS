@@ -64,6 +64,9 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
     // Back-reference to owning JobManager
     private transient JobManager jobManager;
 
+    // Used to cancel job
+    private transient Future<CCRSJobResult> future;
+
     @Override
     public CCRSJobResult call() throws Exception {
 
