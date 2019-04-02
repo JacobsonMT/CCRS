@@ -23,7 +23,5 @@ public class ApplicationSettings {
     private int purgeSavedJobsTimeHours = 1;
     private int purgeAfterHours = 24;
     private boolean disableEmails = false;
-    private boolean emailOnJobSubmitted = true;
-    private boolean emailOnJobStart = true;
 
 }

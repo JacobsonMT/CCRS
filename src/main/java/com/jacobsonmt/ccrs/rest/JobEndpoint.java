@@ -80,7 +80,12 @@ public class JobEndpoint {
                     jobSubmissionContent.label,
                     sequences,
                     jobSubmissionContent.email,
-                    jobSubmissionContent.hidden );
+                    jobSubmissionContent.hidden,
+                    jobSubmissionContent.emailJobLinkPrefix,
+                    jobSubmissionContent.emailOnJobSubmitted,
+                    jobSubmissionContent.emailOnJobStart,
+                    jobSubmissionContent.emailOnJobComplete
+            );
 
             for ( CCRSJob job : jobs ) {
                 jobManager.submit( job );
@@ -147,8 +152,12 @@ public class JobEndpoint {
         private final String userId;
         @NotBlank(message = "FASTA content missing!")
         private final String fastaContent;
-        private final String email;
         private final Boolean hidden;
+        private final String email;
+        private final String emailJobLinkPrefix;
+        private final Boolean emailOnJobSubmitted = false;
+        private final Boolean emailOnJobStart = false;
+        private final Boolean emailOnJobComplete = true;
     }
 
 

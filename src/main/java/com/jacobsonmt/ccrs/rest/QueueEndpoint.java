@@ -61,7 +61,11 @@ public class QueueEndpoint {
                             i + "label" + j,
                             new FASTASequence( "Mock Header", i + " fasta content " + j, "" ) ,
                             i + "email" + j,
-                            i % 3 == 0 );
+                            i % 3 == 0,
+                            "",
+                            false,
+                            false,
+                            false );
                     jobManager.submit( job );
                 }
             }

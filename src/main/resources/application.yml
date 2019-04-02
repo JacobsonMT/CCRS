@@ -4,7 +4,7 @@ ccrs:
       name: admin
       token: these-are-not-the-tokens-you-are-looking-for
     client1:
-      name: client1
+      name: client 1 name
       token: client1token
       # Maximum number of jobs a client can have in the processing queue
       process-limit: 2
@@ -15,7 +15,7 @@ ccrs:
       # Maximum number of jobs a user can have in total (processing + client queue + user queue)
       user-job-limit: 20
     client2:
-      name: client2
+      name: client 2 name
       token: client2token
       process-limit: 2
       job-limit: 100

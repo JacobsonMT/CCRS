@@ -154,6 +154,10 @@ public class JobManager {
      * @param sequence Input sequence data used to run the job.
      * @param email Email to be used for notifications if enabled.
      * @param hidden Is job private.
+     * @param emailJobLinkPrefix Link prefix used to create the job url in client
+     * @param emailOnJobSubmitted Send email when job is submitted to the queueing system.
+     * @param emailOnJobStart Send email when job is started.
+     * @param emailOnJobComplete Send email when job is complete.
      * @return Created job.
      */
     public CCRSJob createJob( String clientId,
@@ -161,7 +165,11 @@ public class JobManager {
                               String label,
                               FASTASequence sequence,
                               String email,
-                              boolean hidden ) {
+                              boolean hidden,
+                              String emailJobLinkPrefix,
+                              boolean emailOnJobSubmitted,
+                              boolean emailOnJobStart,
+                              boolean emailOnJobComplete ) {
         CCRSJob.CCRSJobBuilder jobBuilder = CCRSJob.builder();
 
         // Generated
@@ -183,6 +191,10 @@ public class JobManager {
         jobBuilder.inputFASTAContent( sequence.getFASTAContent() );
         jobBuilder.hidden( hidden );
         jobBuilder.email( email );
+        jobBuilder.emailJobLinkPrefix( emailJobLinkPrefix );
+        jobBuilder.emailOnJobSubmitted( emailOnJobSubmitted );
+        jobBuilder.emailOnJobStart( emailOnJobStart );
+        jobBuilder.emailOnJobComplete( emailOnJobComplete );
 
         return jobBuilder.build();
 
@@ -193,7 +205,11 @@ public class JobManager {
                                      String label,
                                      Set<FASTASequence> sequences,
                                      String email,
-                                     boolean hidden ) {
+                                     boolean hidden,
+                                     String emailJobLinkPrefix,
+                                     boolean emailOnJobSubmitted,
+                                     boolean emailOnJobStart,
+                                     boolean emailOnJobComplete ) {
 
         List<CCRSJob> jobs = new ArrayList<>();
 
@@ -205,7 +221,11 @@ public class JobManager {
                     label,
                     sequence,
                     email,
-                    hidden );
+                    hidden,
+                    emailJobLinkPrefix,
+                    emailOnJobSubmitted,
+                    emailOnJobStart,
+                    emailOnJobComplete );
 
             if ( !sequence.getValidationStatus().isEmpty() ) {
                 job.setComplete( true );
@@ -374,7 +394,7 @@ public class JobManager {
             return "Job already submitted.";
         }
 
-        if ( applicationSettings.isEmailOnJobSubmitted() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
+        if ( job.isEmailOnJobSubmitted() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
             try {
                 emailService.sendJobSubmittedMessage( job );
             } catch ( MessagingException | MailSendException e ) {
@@ -404,7 +424,7 @@ public class JobManager {
     }
 
     public void onJobStart( CCRSJob job ) {
-        if ( applicationSettings.isEmailOnJobStart() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
+        if ( job.isEmailOnJobStart() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
             try {
                 emailService.sendJobStartMessage( job );
             } catch ( MessagingException | MailSendException e ) {
@@ -427,7 +447,7 @@ public class JobManager {
 
     public void onJobComplete( CCRSJob job ) {
         job.setSaveExpiredDate( System.currentTimeMillis() + applicationSettings.getPurgeAfterHours() * 60 * 60 * 1000 );
-        if ( job.getEmail() != null && !job.getEmail().isEmpty() ) {
+        if ( job.isEmailOnJobComplete() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
             try {
                 emailService.sendJobCompletionMessage( job );
             } catch ( MessagingException | MailSendException e ) {

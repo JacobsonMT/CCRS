@@ -41,6 +41,10 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
     private Date startedDate;
     private Date finishedDate;
     private transient String email;
+    private transient String emailJobLinkPrefix; // TODO: Awkward, but good enough for now
+    @Builder.Default private transient boolean emailOnJobSubmitted = false;
+    @Builder.Default private transient boolean emailOnJobStart= false;
+    @Builder.Default private transient boolean emailOnJobComplete= true;
 
     // Information on running / completion
     @Builder.Default private boolean running = false;

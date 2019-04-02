@@ -2,6 +2,7 @@ package com.jacobsonmt.ccrs.services;
 
 import com.jacobsonmt.ccrs.model.CCRSJob;
 import com.jacobsonmt.ccrs.settings.ApplicationSettings;
+import com.jacobsonmt.ccrs.settings.ClientSettings;
 import com.jacobsonmt.ccrs.settings.SiteSettings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -11,8 +12,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
-import javax.servlet.http.HttpServletRequest;
-import java.util.Objects;
 
 @Service
 public class EmailService {
@@ -25,6 +24,9 @@ public class EmailService {
 
     @Autowired
     ApplicationSettings applicationSettings;
+
+    @Autowired
+    ClientSettings clientSettings;
 
     private void sendMessage( String subject, String content, String to ) throws MessagingException {
         sendMessage( subject, content, to, null );
@@ -51,53 +53,68 @@ public class EmailService {
 
     }
 
-    public void sendSupportMessage( String message, String name, String email, HttpServletRequest request,
-                                    MultipartFile attachment ) throws MessagingException {
-        StringBuilder content = new StringBuilder();
-        content.append( "<p>Name: " + name + "</p>" );
-        content.append( "<p>Email: " + email + "</p>" );
-        content.append( "<p>User-Agent: " + request.getHeader( "User-Agent" ) + "</p>" );
-        content.append( "<p>Message: " + message + "</p>" );
-        boolean hasAttachment = (attachment != null && !Objects.equals( attachment.getOriginalFilename(), "" ));
-        content.append( "<p>File Attached: " + hasAttachment + "</p>" );
-
-        sendMessage( "IDR Bind Help - Contact Support", content.toString(), siteSettings.getContactEmail(), hasAttachment ? attachment : null );
-    }
-
     public void sendJobSubmittedMessage( CCRSJob job ) throws MessagingException {
         if ( job.getEmail() == null || job.getEmail().isEmpty() ) {
             return;
         }
-        sendMessage( "IDB Bind - Job Submitted", jobToEmail("Job Submitted", job), job.getEmail() );
+
+        String clientName = clientSettings.getClients().get( job.getClientId() ).getName();
+        String jobUrl = job.getEmailJobLinkPrefix() + job.getJobId();
+
+        StringBuilder content = new StringBuilder();
+        content.append( "<p>Your job has been submitted!</p>" );
+        content.append( "<p>The job labelled <strong>" + job.getLabel() + "</strong> has been submitted to <strong>" + clientName + "</strong>.</p>" );
+        content.append( "<p>You can view its progress and/or results here: <a href='" + jobUrl + "' target='_blank'>" + jobUrl + "</a>.</p>" );
+        if ( job.isEmailOnJobStart() && job.isEmailOnJobComplete() ) {
+            content.append( "<p>We will notify you when the job has begun processing and when it has completed.</p>" );
+        } else if ( job.isEmailOnJobStart() ) {
+            content.append( "<p>We will notify you when the job has begun processing.</p>" );
+        } else if ( job.isEmailOnJobComplete() ) {
+            content.append( "<p>We will notify you when the job has completed.</p>" );
+        }
+        content.append( "<hr style='margin-top: 50px;'><p><small>THIS IS AN AUTOMATED MESSAGE - PLEASE DO NOT REPLY DIRECTLY TO THIS EMAIL</small></p>" );
+        sendMessage(  clientName + " - Job Submitted",
+                content.toString(),
+                job.getEmail() );
     }
 
     public void sendJobStartMessage( CCRSJob job ) throws MessagingException {
         if ( job.getEmail() == null || job.getEmail().isEmpty() ) {
             return;
         }
-        sendMessage( "IDB Bind - Job Started", jobToEmail("Job Started", job), job.getEmail() );
 
+        String clientName = clientSettings.getClients().get( job.getClientId() ).getName();
+        String jobUrl = job.getEmailJobLinkPrefix() + job.getJobId();
+
+        StringBuilder content = new StringBuilder();
+        content.append( "<p>Your job has started processing!</p>" );
+        content.append( "<p>The job labelled <strong>" + job.getLabel() + "</strong> submitted on <strong>" + job.getSubmittedDate() + "</strong> has begun processing.</p>" );
+        content.append( "<p>You can view its progress and/or results here: <a href='" + jobUrl + "' target='_blank'>" + jobUrl + "</a>.</p>" );
+        if ( job.isEmailOnJobComplete() ) {
+            content.append( "<p>We will notify you when the job has completed.</p>" );
+        }
+        content.append( "<hr style='margin-top: 50px;'><p><small>THIS IS AN AUTOMATED MESSAGE - PLEASE DO NOT REPLY DIRECTLY TO THIS EMAIL</small></p>" );
+        sendMessage(  clientName + " - Job Started",
+                content.toString(),
+                job.getEmail() );
     }
 
     public void sendJobCompletionMessage( CCRSJob job ) throws MessagingException {
         if ( job.getEmail() == null || job.getEmail().isEmpty() ) {
             return;
         }
-        sendMessage( "IDB Bind - Job Complete", jobToEmail("Job Complete", job), job.getEmail() );
-    }
 
-    private String jobToEmail(String header, CCRSJob job) {
+        String clientName = clientSettings.getClients().get( job.getClientId() ).getName();
+        String jobUrl = job.getEmailJobLinkPrefix() + job.getJobId();
+
         StringBuilder content = new StringBuilder();
-        content.append( "<p>" + header + "</p>" );
-        content.append( "<p>Label: " + job.getLabel() + "</p>" );
-        content.append( "<p>Submitted: " + job.getSubmittedDate() + "</p>" );
-        content.append( "<p>Status: " + job.getStatus() + "</p>" );
-        if ( job.isSaved() ) {
-            content.append( "<p>Saved Link: " + "<a href='" + siteSettings.getFullUrl()
-                    + "job/" + job.getJobId() + "' target='_blank'>"
-                    + siteSettings.getFullUrl() + "job/" + job.getJobId() + "'</a></p>" );
-        }
-        return content.toString();
+        content.append( "<p>Your job has completed!</p>" );
+        content.append( "<p>The job labelled <strong>" + job.getLabel() + "</strong> submitted on <strong>" + job.getSubmittedDate() + "</strong> has completed.</p>" );
+        content.append( "<p>You can view its results here: <a href='" + jobUrl + "' target='_blank'>" + jobUrl + "</a>.</p>" );
+        content.append( "<hr style='margin-top: 50px;'><p><small>THIS IS AN AUTOMATED MESSAGE - PLEASE DO NOT REPLY DIRECTLY TO THIS EMAIL</small></p>" );
+        sendMessage(  clientName + " - Job Completed",
+                content.toString(),
+                job.getEmail() );
     }
 
 }
