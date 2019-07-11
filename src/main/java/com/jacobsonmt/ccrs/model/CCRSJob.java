@@ -207,8 +207,10 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
 
     public CCRSJobVO toValueObject( boolean obfuscateEmail, boolean withResults) {
         return new CCRSJobVO( jobId, clientId, label, status, running, failed, complete, position,
-                obfuscateEmail ? email.replaceAll("(\\w{0,3})(\\w+.*)(@.*)", "$1****$3") :  email,
-                hidden, submittedDate, startedDate, finishedDate, inputFASTAContent, withResults ? result : null, executionTime );
+                obfuscateEmail ? email.replaceAll( "(\\w{0,3})(\\w+.*)(@.*)", "$1****$3" ) : email,
+                hidden, submittedDate, startedDate, finishedDate, inputFASTAContent,
+                !withResults && result != null ? new CCRSJobResult( result.getTaxaId() ) : result,
+                executionTime );
     }
 
 }
