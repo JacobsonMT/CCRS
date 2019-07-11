@@ -153,7 +153,7 @@ public class JobEndpoint {
         if ( job == null ) {
             return null;
         }
-        return job.toValueObject(true);
+        return job.toValueObject(true, true);
     }
 
     @Getter

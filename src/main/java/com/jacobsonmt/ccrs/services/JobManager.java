@@ -543,11 +543,11 @@ public class JobManager {
         return count == null ? 0 : count.get();
     }
 
-    public List<CCRSJob.CCRSJobVO> listPublicJobs() {
+    public List<CCRSJob.CCRSJobVO> listPublicJobs(boolean withResults) {
         return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
                 .distinct()
                 .filter( j -> !j.isHidden() )
-                .map( j -> j.toValueObject( true ) )
+                .map( j -> j.toValueObject( true, withResults ) )
                 .sorted(
                         Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
                                 .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
@@ -557,11 +557,11 @@ public class JobManager {
                 .collect( Collectors.toList() );
     }
 
-    public List<CCRSJob.CCRSJobVO> listJobsForClient(String clientId) {
+    public List<CCRSJob.CCRSJobVO> listJobsForClient(String clientId, boolean withResults) {
         return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
                 .distinct()
                 .filter( j -> j.getClientId().equals( clientId ) )
-                .map( j -> j.toValueObject( true ) )
+                .map( j -> j.toValueObject( true, withResults ) )
                 .sorted(
                         Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
                                 .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
@@ -571,11 +571,11 @@ public class JobManager {
                 .collect( Collectors.toList() );
     }
 
-    public List<CCRSJob.CCRSJobVO> listJobsForClientAndUser(String clientId, String userId) {
+    public List<CCRSJob.CCRSJobVO> listJobsForClientAndUser(String clientId, String userId, boolean withResults) {
         return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
                 .distinct()
                 .filter( j -> j.getClientId().equals( clientId ) && j.getUserId().equals( userId ) )
-                .map( j -> j.toValueObject( true ) )
+                .map( j -> j.toValueObject( true, withResults ) )
                 .sorted(
                         Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
                                 .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))

@@ -8,10 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,26 +35,28 @@ public class QueueEndpoint {
     }
 
     @RequestMapping(value = "/public", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public List<CCRSJob.CCRSJobVO> getJobs() {
-        return jobManager.listPublicJobs();
+    public List<CCRSJob.CCRSJobVO> getJobs( @RequestParam(value = "withResults", defaultValue = "false") boolean withResults ) {
+        return jobManager.listPublicJobs( withResults );
     }
 
     @RequestMapping(value = "/client/{clientId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public List<CCRSJob.CCRSJobVO> getJobs( @PathVariable String clientId ) {
+    public List<CCRSJob.CCRSJobVO> getJobs( @PathVariable String clientId,
+                                            @RequestParam(value = "withResults", defaultValue = "false") boolean withResults ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
         if ( client.equals( clientId ) || client.equals( "admin" ) ) {
-            return jobManager.listJobsForClient(clientId);
+            return jobManager.listJobsForClient( clientId, withResults);
         }
         return new ArrayList<>();
     }
 
     @RequestMapping(value = "/client/{clientId}/user/{userId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public List<CCRSJob.CCRSJobVO> getJobs( @PathVariable String clientId, @PathVariable String userId  ) {
+    public List<CCRSJob.CCRSJobVO> getJobs( @PathVariable String clientId, @PathVariable String userId,
+                                            @RequestParam(value = "withResults", defaultValue = "false") boolean withResults  ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
         if ( client.equals( clientId ) || client.equals( "admin" ) ) {
-            return jobManager.listJobsForClientAndUser(clientId, userId);
+            return jobManager.listJobsForClientAndUser( clientId, userId, withResults);
         }
         return new ArrayList<>();
     }
