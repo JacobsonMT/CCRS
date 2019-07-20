@@ -126,7 +126,7 @@ public class JobEndpoint {
 
         // test for not null and complete
         if ( job != null && job.isComplete() && !job.isFailed() ) {
-            return createStreamingResponse(job.getResult().getResultCSV(), job.getLabel() + "-result.csv");
+            return createStreamingResponse(job.getResult().getResultCSV(), job.getLabel() + ".list");
         }
         return ResponseEntity.badRequest().body( "" );
     }
@@ -137,7 +137,7 @@ public class JobEndpoint {
 
         // test for not null and complete
         if ( job != null ) {
-            return createStreamingResponse(job.getInputFASTAContent(), job.getLabel() + "-input.fasta");
+            return createStreamingResponse(job.getInputFASTAContent(), job.getLabel() + ".fasta");
         }
         return ResponseEntity.badRequest().body( "" );
     }
