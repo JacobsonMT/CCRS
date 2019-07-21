@@ -50,8 +50,8 @@ public class FASTASequence {
             Set<String> headers = new HashSet<>();
 
             String[] sequenceStrings = fasta.split( "(^>)|(\\r?\\n>)" );
-            log.info( fasta );
-            log.info( Arrays.toString(sequenceStrings) );
+            log.debug( fasta );
+            log.debug( Arrays.toString(sequenceStrings) );
 
             //Throw out first entry as it necessarily doesn't start with a >
             sequenceStrings[0] = "";
