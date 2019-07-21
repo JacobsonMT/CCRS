@@ -11,7 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
 
 @Log4j2
 @Getter
@@ -205,9 +206,13 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
         private final long executionTime;
     }
 
+    public static String obfuscateEmail( String email ) {
+        return email.replaceAll( "(\\w{0,3})(\\w+.*)(@.*)", "$1****$3" );
+    }
+
     public CCRSJobVO toValueObject( boolean obfuscateEmail, boolean withResults) {
         return new CCRSJobVO( jobId, clientId, label, status, running, failed, complete, position,
-                obfuscateEmail ? email.replaceAll( "(\\w{0,3})(\\w+.*)(@.*)", "$1****$3" ) : email,
+                obfuscateEmail ? obfuscateEmail(email) : email,
                 hidden, submittedDate, startedDate, finishedDate, inputFASTAContent,
                 !withResults && result != null ? new CCRSJobResult( result.getTaxaId() ) : result,
                 executionTime );
