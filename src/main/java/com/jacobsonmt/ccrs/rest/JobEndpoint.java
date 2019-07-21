@@ -36,30 +36,25 @@ public class JobEndpoint {
     private JobManager jobManager;
 
     @RequestMapping(value = "/{jobId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public CCRSJob.CCRSJobVO getJob( @PathVariable String jobId) {
-        return createJobValueObject( jobManager.getSavedJob( jobId ) );
-    }
+    public ResponseEntity<CCRSJob.CCRSJobVO> getJob( @PathVariable String jobId) {
+        CCRSJob job = jobManager.getSavedJob( jobId );
 
-    @RequestMapping(value = "/", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public CCRSJob.CCRSJobVO getJob2( @RequestParam(value = "jobId") String jobId) {
-        return createJobValueObject( jobManager.getSavedJob( jobId ) );
+        if ( job == null ) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok( createJobValueObject( jobManager.getSavedJob( jobId ) ) );
     }
 
     @RequestMapping(value = "/{jobId}/status", method = RequestMethod.GET, produces = {MediaType.TEXT_PLAIN_VALUE})
-    public String getJobStatus(@PathVariable String jobId) {
+    public ResponseEntity<String> getJobStatus(@PathVariable String jobId) {
         CCRSJob job = jobManager.getSavedJob( jobId );
 
-        if ( job != null ) {
-            return job.getStatus();
+        if ( job == null ) {
+            return ResponseEntity.status( HttpStatus.NOT_FOUND ).body( "Job Not Found" );
         }
 
-        log.info( "Job Not Found" );
-        return "Job Not Found";
-    }
-
-    @RequestMapping(value = "/status", method = RequestMethod.GET, produces = {MediaType.TEXT_PLAIN_VALUE})
-    public String getJobStatus2(@RequestParam(value = "jobId") String jobId) {
-        return getJobStatus( jobId );
+        return ResponseEntity.ok( job.getStatus() );
     }
 
     @RequestMapping(value = "/submit", method = RequestMethod.POST, produces = {MediaType.APPLICATION_JSON_VALUE})
@@ -108,38 +103,46 @@ public class JobEndpoint {
 
     }
 
-    @GetMapping("/{jobId}/delete")
+    @DeleteMapping("/{jobId}/delete")
     public ResponseEntity<String> stopJob( @PathVariable("jobId") String jobId) {
         CCRSJob job = jobManager.getSavedJob( jobId );
 
-        // test for not null and complete
-        if ( job != null ) {
-            jobManager.stopJob( job );
-            return ResponseEntity.ok("Job Deleted");
+        if ( job == null ) {
+            return ResponseEntity.status( HttpStatus.NOT_FOUND ).body( "Job Not Found" );
         }
-        return ResponseEntity.badRequest().body( "" );
+
+        jobManager.stopJob( job );
+        return ResponseEntity.accepted().body( "Job Delete: " + jobId ); // Could be 'OK' as well, this seems semantically safer
     }
 
     @GetMapping("/{jobId}/resultCSV")
     public ResponseEntity<String> jobResultCSV( @PathVariable("jobId") String jobId) {
         CCRSJob job = jobManager.getSavedJob( jobId );
 
-        // test for not null and complete
-        if ( job != null && job.isComplete() && !job.isFailed() ) {
-            return createStreamingResponse(job.getResult().getResultCSV(), job.getLabel() + ".list");
+        if ( job == null ) {
+            return ResponseEntity.status( HttpStatus.NOT_FOUND ).body( "Job Not Found" );
         }
-        return ResponseEntity.badRequest().body( "" );
+
+        if ( !job.isComplete() ) {
+            return ResponseEntity.status( HttpStatus.PROCESSING ).body( "Not Yet Complete");
+        }
+
+        if ( job.isFailed() ) {
+            return ResponseEntity.status( HttpStatus.NOT_FOUND ).body( "Job Failed" );
+        }
+
+        return createStreamingResponse(job.getResult().getResultCSV(), job.getLabel() + ".list");
     }
 
     @GetMapping("/{jobId}/inputFASTA")
     public ResponseEntity<String> jobInputFASTA( @PathVariable("jobId") String jobId) {
         CCRSJob job = jobManager.getSavedJob( jobId );
 
-        // test for not null and complete
-        if ( job != null ) {
-            return createStreamingResponse(job.getInputFASTAContent(), job.getLabel() + ".fasta");
+        if ( job == null ) {
+            return ResponseEntity.status( HttpStatus.NOT_FOUND ).body( "Job Not Found" );
         }
-        return ResponseEntity.badRequest().body( "" );
+
+        return createStreamingResponse(job.getInputFASTAContent(), job.getLabel() + ".fasta");
     }
 
     private ResponseEntity<String> createStreamingResponse( String content, String filename ) {

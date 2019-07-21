@@ -5,7 +5,9 @@ import com.jacobsonmt.ccrs.model.FASTASequence;
 import com.jacobsonmt.ccrs.services.JobManager;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -25,40 +27,40 @@ public class QueueEndpoint {
      * @return Approximate number of jobs that have completed for a client. Can be used to test when to update during polling.
      */
     @RequestMapping(value = "/client/{clientId}/complete", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public Integer getCompletionCount( @PathVariable String clientId ) {
+    public ResponseEntity<Integer> getCompletionCount( @PathVariable String clientId ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
-        if ( client.equals( clientId ) || client.equals( "admin" ) ) {
-            return jobManager.getCompletionCount(clientId);
+        if ( !client.equals( clientId ) && !client.equals( "admin" ) ) {
+            return ResponseEntity.status( HttpStatus.UNAUTHORIZED ).body( null );
         }
-        return null;
+        return ResponseEntity.ok( jobManager.getCompletionCount( clientId ) );
     }
 
     @RequestMapping(value = "/public", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public List<CCRSJob.CCRSJobVO> getJobs( @RequestParam(value = "withResults", defaultValue = "false") boolean withResults ) {
-        return jobManager.listPublicJobs( withResults );
+    public ResponseEntity<List<CCRSJob.CCRSJobVO>> getJobs( @RequestParam(value = "withResults", defaultValue = "false") boolean withResults ) {
+        return ResponseEntity.ok( jobManager.listPublicJobs( withResults ) );
     }
 
     @RequestMapping(value = "/client/{clientId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public List<CCRSJob.CCRSJobVO> getJobs( @PathVariable String clientId,
+    public ResponseEntity<List<CCRSJob.CCRSJobVO>> getJobs( @PathVariable String clientId,
                                             @RequestParam(value = "withResults", defaultValue = "false") boolean withResults ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
-        if ( client.equals( clientId ) || client.equals( "admin" ) ) {
-            return jobManager.listJobsForClient( clientId, withResults);
+        if ( !client.equals( clientId ) && !client.equals( "admin" ) ) {
+            return ResponseEntity.status( HttpStatus.UNAUTHORIZED ).body( new ArrayList<>() );
         }
-        return new ArrayList<>();
+        return ResponseEntity.ok( jobManager.listJobsForClient( clientId, withResults) );
     }
 
     @RequestMapping(value = "/client/{clientId}/user/{userId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public List<CCRSJob.CCRSJobVO> getJobs( @PathVariable String clientId, @PathVariable String userId,
+    public ResponseEntity<List<CCRSJob.CCRSJobVO>> getJobs( @PathVariable String clientId, @PathVariable String userId,
                                             @RequestParam(value = "withResults", defaultValue = "false") boolean withResults  ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
-        if ( client.equals( clientId ) || client.equals( "admin" ) ) {
-            return jobManager.listJobsForClientAndUser( clientId, userId, withResults);
+        if ( !client.equals( clientId ) && !client.equals( "admin" ) ) {
+            return ResponseEntity.status( HttpStatus.UNAUTHORIZED ).body( new ArrayList<>() );
         }
-        return new ArrayList<>();
+        return ResponseEntity.ok( jobManager.listJobsForClientAndUser( clientId, userId, withResults) );
     }
 
     @RequestMapping(value = "/mock", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
