@@ -6,7 +6,7 @@
     <groupId>com.jacobsonmt.ccrs</groupId>
     <artifactId>ccrs</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <packaging>war</packaging>
+    <packaging>jar</packaging>
 
     <name>CCRS</name>
     <description>Core Conservation RESTful Server</description>
