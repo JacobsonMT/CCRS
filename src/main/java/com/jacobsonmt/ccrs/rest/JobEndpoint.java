@@ -79,7 +79,7 @@ public class JobEndpoint {
 
             try {
                 Set<FASTASequence> sequences = FASTASequence.parseFASTAContent( jobSubmissionContent.fastaContent );
-                result.setTotalSubmittedJobs( sequences.size() );
+                result.setTotalRequestedJobs( sequences.size() );
 
                 sequences.stream().filter( s -> !s.getValidationStatus().isEmpty() ).forEach(
                         s -> {
@@ -207,7 +207,7 @@ public class JobEndpoint {
         private List<Message> messages = new ArrayList<>();
         private List<CCRSJob.CCRSJobVO> acceptedJobs = new ArrayList<>();;
         private List<String> rejectedJobHeaders = new ArrayList<>();;
-        private int totalSubmittedJobs;
+        private int totalRequestedJobs;
 
         private void addMessage( Message message) {
             messages.add( message );
