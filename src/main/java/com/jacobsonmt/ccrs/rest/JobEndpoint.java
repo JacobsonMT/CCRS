@@ -110,7 +110,7 @@ public class JobEndpoint {
                 if ( result.getAcceptedJobs().isEmpty() ) {
                     result.addMessage( new Message( Message.MessageLevel.WARNING, "No jobs were submitted." ) );
                 } else {
-                    result.addMessage( new Message( Message.MessageLevel.INFO, "Submitted " + jobs.size() + " jobs." ) );
+                    result.addMessage( new Message( Message.MessageLevel.INFO, "Submitted " + result.getAcceptedJobs().size() + " jobs." ) );
                 }
 
             } catch ( FASTAValidationException e ) {
