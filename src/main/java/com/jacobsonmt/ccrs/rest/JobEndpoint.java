@@ -3,9 +3,12 @@ package com.jacobsonmt.ccrs.rest;
 import com.jacobsonmt.ccrs.exceptions.FASTAValidationException;
 import com.jacobsonmt.ccrs.model.CCRSJob;
 import com.jacobsonmt.ccrs.model.FASTASequence;
+import com.jacobsonmt.ccrs.model.Message;
 import com.jacobsonmt.ccrs.services.JobManager;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -14,13 +17,16 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Endpoints to access and submit jobs.
@@ -58,48 +64,66 @@ public class JobEndpoint {
     }
 
     @RequestMapping(value = "/submit", method = RequestMethod.POST, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Map<String,Object>> submitJob( @Valid @RequestBody JobSubmissionContent jobSubmissionContent, HttpServletRequest request) {
+    public ResponseEntity<JobSubmissionResponse> submitJob( @Valid @RequestBody JobSubmissionContent jobSubmissionContent, BindingResult errors ) {
+        // NOTE: You must declare an Errors, or BindingResult argument immediately after the validated method argument.
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String client = authentication.getName();
 
-        LinkedHashMap<String, Object> response = new LinkedHashMap<>();
+        JobSubmissionResponse result = new JobSubmissionResponse();
 
-        Set<FASTASequence> sequences;
-        HttpStatus status = HttpStatus.ACCEPTED;
-        String msg = "";
-
-        try {
-            sequences = FASTASequence.parseFASTAContent( jobSubmissionContent.fastaContent );
-            List<CCRSJob> jobs = jobManager.createJobs( client,
-                    jobSubmissionContent.userId,
-                    jobSubmissionContent.label,
-                    sequences,
-                    jobSubmissionContent.email,
-                    jobSubmissionContent.hidden,
-                    jobSubmissionContent.emailJobLinkPrefix,
-                    jobSubmissionContent.emailOnJobSubmitted,
-                    jobSubmissionContent.emailOnJobStart,
-                    jobSubmissionContent.emailOnJobComplete
-            );
-
-            for ( CCRSJob job : jobs ) {
-                jobManager.submit( job );
+        if (errors.hasErrors()) {
+            for ( ObjectError error : errors.getAllErrors() ) {
+                result.addMessage( new Message( Message.MessageLevel.ERROR, error.getDefaultMessage() ) );
             }
+        } else {
 
-            long errorCnt = sequences.stream().filter( s -> !s.getValidationStatus().isEmpty() ).count();
-            if ( errorCnt > 0) {
-                msg = errorCnt + " job(s) had a validation error";
+            try {
+                Set<FASTASequence> sequences = FASTASequence.parseFASTAContent( jobSubmissionContent.fastaContent );
+                result.setTotalSubmittedJobs( sequences.size() );
+
+                sequences.stream().filter( s -> !s.getValidationStatus().isEmpty() ).forEach(
+                        s -> {
+                            result.addRejectedHeader( s.getHeader() );
+                            result.addMessage( new Message( Message.MessageLevel.WARNING, s.getValidationStatus() + " for '" + s.getHeader() + "'" ) );
+                        }
+                );
+
+                List<CCRSJob> jobs = jobManager.createJobs( client,
+                        jobSubmissionContent.userId,
+                        jobSubmissionContent.label,
+                        sequences,
+                        jobSubmissionContent.email,
+                        jobSubmissionContent.hidden,
+                        jobSubmissionContent.emailJobLinkPrefix,
+                        jobSubmissionContent.emailOnJobSubmitted,
+                        jobSubmissionContent.emailOnJobStart,
+                        jobSubmissionContent.emailOnJobComplete
+                );
+
+                for ( CCRSJob job : jobs ) {
+                    String rejectedMsg = jobManager.submit( job );
+                    if ( rejectedMsg.isEmpty() ) {
+                        result.addAcceptedJob( job );
+                    }
+                }
+
+                if ( result.getAcceptedJobs().isEmpty() ) {
+                    result.addMessage( new Message( Message.MessageLevel.WARNING, "No jobs were submitted." ) );
+                } else {
+                    result.addMessage( new Message( Message.MessageLevel.INFO, "Submitted " + jobs.size() + " jobs." ) );
+                }
+
+            } catch ( FASTAValidationException e ) {
+                result.addMessage( new Message( Message.MessageLevel.ERROR, e.getMessage() ) );
             }
-            response.put( "jobIds", jobs.stream().map( CCRSJob::getJobId ).collect( Collectors.toList() ) );
-
-        } catch ( FASTAValidationException e ) {
-            status = HttpStatus.BAD_REQUEST;
-            msg = e.getMessage();
         }
 
-        response.put( "message", msg );
+        HttpStatus status = result.getMessages().stream()
+                .anyMatch( m -> m.getLevel().equals( Message.MessageLevel.ERROR ) ) ?
+                HttpStatus.BAD_REQUEST :
+                HttpStatus.OK;
 
-        return ResponseEntity.status( status ).body(response);
+        return ResponseEntity.status( status ).body( result );
 
     }
 
@@ -168,11 +192,34 @@ public class JobEndpoint {
         @NotBlank(message = "FASTA content missing!")
         private final String fastaContent;
         private final Boolean hidden;
+        @Email(message = "Not a valid email address")
         private final String email;
         private final String emailJobLinkPrefix;
         private final Boolean emailOnJobSubmitted = false;
         private final Boolean emailOnJobStart = false;
         private final Boolean emailOnJobComplete = true;
+    }
+
+    @Setter
+    @Getter
+    @NoArgsConstructor
+    static class JobSubmissionResponse {
+        private List<Message> messages = new ArrayList<>();
+        private List<CCRSJob.CCRSJobVO> acceptedJobs = new ArrayList<>();;
+        private List<String> rejectedJobHeaders = new ArrayList<>();;
+        private int totalSubmittedJobs;
+
+        private void addMessage( Message message) {
+            messages.add( message );
+        }
+
+        private void addAcceptedJob(CCRSJob job) {
+            acceptedJobs.add( job.toValueObject( false, false ) );
+        }
+
+        private void addRejectedHeader(String label) {
+            rejectedJobHeaders.add( label );
+        }
     }
 
 
