@@ -1,5 +1,6 @@
 package com.jacobsonmt.ccrs.services;
 
+import com.jacobsonmt.ccrs.exceptions.ResultFileException;
 import com.jacobsonmt.ccrs.model.CCRSJob;
 import com.jacobsonmt.ccrs.model.CCRSJobResult;
 import com.jacobsonmt.ccrs.model.FASTASequence;
@@ -112,10 +113,12 @@ public class JobManager {
                                 job.setPosition( null );
                                 job.setEmail( "" );
 
-                                CCRSJobResult result = new CCRSJobResult(
-                                        inputStreamToString( Files.newInputStream( job.getJobsDirectory().resolve( job.getOutputCSVFilename() ) ) )
-                                );
-                                job.setResult( result );
+                                try {
+                                    job.setResult( CCRSJobResult.parseResultCSVStream(
+                                            Files.newInputStream( job.getJobsDirectory().resolve( job.getOutputCSVFilename() ) ) ) );
+                                } catch ( ResultFileException e ) {
+                                    job.setResult( CCRSJobResult.createNullResult() );
+                                }
 
                                 job.setSaveExpiredDate( System.currentTimeMillis() + applicationSettings.getPurgeAfterHours() * 60 * 60 * 1000 );
 

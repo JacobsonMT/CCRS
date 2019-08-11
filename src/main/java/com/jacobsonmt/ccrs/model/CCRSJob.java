@@ -1,5 +1,6 @@
 package com.jacobsonmt.ccrs.model;
 
+import com.jacobsonmt.ccrs.exceptions.ResultFileException;
 import com.jacobsonmt.ccrs.services.JobManager;
 import lombok.*;
 import lombok.extern.log4j.Log4j2;
@@ -103,10 +104,13 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
             this.finishedDate =  new Date();
 
             // Get output
-            String resultCSV = inputStreamToString( Files.newInputStream( jobsDirectory.resolve( outputCSVFilename ) ) );
+            this.result = CCRSJobResult.parseResultCSVStream( Files.newInputStream( jobsDirectory.resolve( outputCSVFilename ) ) );
+            if ( this.result.getTaxa().getKey().equals( Taxa.KnownKeyTypes.OX.name() ) ) {
+                this.status = "Completed in " + executionTime + "s";
+            } else {
+                this.status = this.result.getTaxa().getKey();
+            }
 
-            this.result = new CCRSJobResult( resultCSV );
-            this.status = "Completed in " + executionTime + "s";
             log.info( "Finished job (" + label + ") for client: (" + clientId + ")" );
             this.running = false;
             this.complete = true;
@@ -117,10 +121,18 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
                 oos.writeObject( this );
             }
 
+        } catch ( ResultFileException e ) {
+            log.error( e );
+            this.finishedDate =  new Date();
+            this.result = CCRSJobResult.createNullResult();
+            this.complete = true;
+            this.running = false;
+            this.failed = true;
+            this.status = e.getMessage();
         } catch ( Exception e ) {
             log.error( e );
             this.finishedDate =  new Date();
-            this.result = new CCRSJobResult("" );
+            this.result = CCRSJobResult.createNullResult();
             this.complete = true;
             this.running = false;
             this.failed = true;
@@ -214,7 +226,7 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
         return new CCRSJobVO( jobId, clientId, label, status, running, failed, complete, position,
                 obfuscateEmail ? obfuscateEmail(email) : email,
                 hidden, submittedDate, startedDate, finishedDate, inputFASTAContent,
-                !withResults && result != null ? new CCRSJobResult( result.getTaxaId() ) : result,
+                !withResults && result != null ? CCRSJobResult.createWithOnlyTaxa( result.getTaxa() ) : result,
                 executionTime );
     }
 
