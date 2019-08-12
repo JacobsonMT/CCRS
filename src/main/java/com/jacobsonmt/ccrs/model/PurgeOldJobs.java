@@ -22,7 +22,6 @@ public class PurgeOldJobs implements Runnable {
                 Map.Entry<String, CCRSJob> entry = it.next();
                 CCRSJob job = entry.getValue();
                 if ( job.isComplete() && System.currentTimeMillis() > job.getSaveExpiredDate() ) {
-                    job.setSaved( false );
                     job.setSaveExpiredDate( null );
                     it.remove();
                     log.debug( "Purged " + job.getJobId() );

@@ -1,10 +1,9 @@
 package com.jacobsonmt.ccrs.services;
 
-import com.jacobsonmt.ccrs.exceptions.ResultFileException;
 import com.jacobsonmt.ccrs.model.CCRSJob;
 import com.jacobsonmt.ccrs.model.CCRSJobResult;
 import com.jacobsonmt.ccrs.model.FASTASequence;
-import com.jacobsonmt.ccrs.model.PurgeOldJobs;
+import com.jacobsonmt.ccrs.repositories.JobRepository;
 import com.jacobsonmt.ccrs.settings.ApplicationSettings;
 import com.jacobsonmt.ccrs.settings.ClientSettings;
 import lombok.extern.log4j.Log4j2;
@@ -16,17 +15,11 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.mail.MessagingException;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static com.jacobsonmt.ccrs.model.CCRSJob.inputStreamToString;
 
 @Log4j2
 @Service
@@ -40,6 +33,9 @@ public class JobManager {
 
     @Autowired
     EmailService emailService;
+
+    @Autowired
+    JobRepository jobRepository;
 
     // Main executor to process jobs
     private ExecutorService executor;
@@ -59,9 +55,6 @@ public class JobManager {
         return job.getClientId() + "-" + job.getUserId();
     }
 
-    // Contains map of token to saved job for future viewing
-    private final Map<String, CCRSJob> savedJobs = new ConcurrentHashMap<>();
-
     // Stored approximate number of completed jobs for each clientId. Can be used to test when to update during polling.
     private final Map<String, AtomicInteger> completionCounts = new ConcurrentHashMap<>();
 
@@ -80,68 +73,6 @@ public class JobManager {
     private void initialize() {
         log.info( "Job Manager Initialize" );
         executor = Executors.newFixedThreadPool( applicationSettings.getConcurrentJobs() );
-        if ( applicationSettings.isPurgeSavedJobs() ) {
-            scheduler = Executors.newSingleThreadScheduledExecutor();
-            // Checks every hour for old jobs
-            scheduler.scheduleAtFixedRate( new PurgeOldJobs( savedJobs ), 0,
-                    applicationSettings.getPurgeSavedJobsTimeHours(), TimeUnit.HOURS );
-        }
-
-        if ( applicationSettings.isLoadJobsFromDisk() ) {
-
-            // Populate completed jobs from jobs folder
-            Path jobsDirectory = Paths.get( applicationSettings.getJobsDirectory() );
-
-            PathMatcher matcher =
-                    FileSystems.getDefault().getPathMatcher( "glob:**/" + applicationSettings.getJobSerializationFilename() );
-
-            try {
-                Files.walkFileTree( jobsDirectory, new SimpleFileVisitor<Path>() {
-
-                    @Override
-                    public FileVisitResult visitFile( Path path,
-                                                      BasicFileAttributes attrs ) throws IOException {
-                        if ( matcher.matches( path ) ) {
-                            try ( ObjectInputStream ois = new ObjectInputStream( Files.newInputStream( path ) ) ) {
-                                CCRSJob job = (CCRSJob) ois.readObject();
-
-                                // Add back important transient fields
-                                job.setJobsDirectory( path.getParent() );
-
-                                job.setInputFASTAContent( inputStreamToString( Files.newInputStream( job.getJobsDirectory().resolve( job.getInputFASTAFilename() ) ) ) );
-
-                                job.setPosition( null );
-                                job.setEmail( "" );
-
-                                try {
-                                    job.setResult( CCRSJobResult.parseResultCSVStream(
-                                            Files.newInputStream( job.getJobsDirectory().resolve( job.getOutputCSVFilename() ) ) ) );
-                                } catch ( ResultFileException e ) {
-                                    job.setResult( CCRSJobResult.createNullResult() );
-                                }
-
-                                job.setSaveExpiredDate( System.currentTimeMillis() + applicationSettings.getPurgeAfterHours() * 60 * 60 * 1000 );
-
-                                saveJob( job );
-                            } catch ( ClassNotFoundException e ) {
-                                log.error( e );
-                            }
-                        }
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult visitFileFailed( Path file, IOException exc )
-                            throws IOException {
-                        return FileVisitResult.CONTINUE;
-                    }
-                } );
-            } catch ( IOException e ) {
-                log.error( e );
-            }
-
-        }
-
     }
 
     @PreDestroy
@@ -239,7 +170,7 @@ public class JobManager {
                 job.setFailed( true );
                 job.setPosition( null ); // Mainly for sort order in tables
                 job.setStatus( sequence.getValidationStatus() );
-                saveJob( job ); // So the job's validation status can be queried
+                jobRepository.cacheJob( job ); // So the job's validation status can be queried
                 log.info( "Validation error: " + job.getJobId() + " - " + job.getStatus() );
             }
 
@@ -385,7 +316,7 @@ public class JobManager {
             if ( !jobs.contains( job ) ) {
                 jobs.add( job );
                 job.setStatus( "Pending" );
-                saveJob( job );
+                jobRepository.cacheJob( job );
                 submitTopOfUserQueue( userQueueKey(job) );
             }
         }
@@ -417,35 +348,8 @@ public class JobManager {
     }
 
     public CCRSJob getSavedJob( String jobId ) {
-        CCRSJob job = savedJobs.get( jobId );
-        if ( job !=null ) {
-            // Reset purge datetime
-            job.setSaveExpiredDate( System.currentTimeMillis() + applicationSettings.getPurgeAfterHours() * 60 * 60 * 1000 );
-        }
-        return job;
+        return jobRepository.getById( jobId );
     }
-
-    public void saveJob( CCRSJob job ) {
-        synchronized ( savedJobs ) {
-            job.setSaved( true );
-            savedJobs.put( job.getJobId(), job );
-        }
-    }
-
-    private void removeSavedJob( CCRSJob job ) {
-        synchronized ( savedJobs ) {
-            savedJobs.remove( job.getJobId() );
-        }
-
-        // Delete serialization on disk
-        try {
-            Path serializedJob = job.getJobsDirectory().resolve( job.getJobSerializationFilename() );
-            Files.deleteIfExists( serializedJob );
-        } catch ( IOException e ) {
-            log.error(e);
-        }
-    }
-
 
     public void stopJob( CCRSJob job ) {
         log.info( "Requesting job stop (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ")" );
@@ -486,8 +390,8 @@ public class JobManager {
             }
         }
 
-        // Remove the job from saved cache no matter what so that it becomes inaccessible
-        removeSavedJob( job );
+        // Remove the job from saved cache and disk no matter what so that it becomes inaccessible
+        jobRepository.delete( job );
 
         // Fix any gaps created in the queues, if there are no gaps these do nothing so safe to run in either case
         submitTopOfClientQueue( job.getClientId() );
@@ -531,6 +435,10 @@ public class JobManager {
             jobQueueMirror.remove( job );
         }
 
+        if ( !job.isFailed() ) {
+            jobRepository.persistJob( job );
+        }
+
         // Increment counts
         completionCounts.putIfAbsent( job.getClientId(), new AtomicInteger( 0 ) );
         completionCounts.get( job.getClientId() ).incrementAndGet();
@@ -546,38 +454,36 @@ public class JobManager {
         return count == null ? 0 : count.get();
     }
 
-    public List<CCRSJob.CCRSJobVO> listPublicJobs(boolean withResults) {
-        return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
-                .distinct()
-                .filter( j -> !j.isHidden() )
-                .map( j -> j.toValueObject( true, withResults ) )
-                .sorted(
-                        Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
-                                .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
-                                .thenComparing(CCRSJob.CCRSJobVO::getSubmittedDate, Comparator.nullsLast(Date::compareTo).reversed())
-                                .thenComparing(CCRSJob.CCRSJobVO::getStatus, String::compareToIgnoreCase)
-                )
-                .collect( Collectors.toList() );
-    }
+//    public List<CCRSJob.CCRSJobVO> listPublicJobs(boolean withResults) {
+//        return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
+//                .distinct()
+//                .filter( j -> !j.isHidden() )
+//                .map( j -> j.toValueObject( true, withResults ) )
+//                .sorted(
+//                        Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
+//                                .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
+//                                .thenComparing(CCRSJob.CCRSJobVO::getSubmittedDate, Comparator.nullsLast(Date::compareTo).reversed())
+//                                .thenComparing(CCRSJob.CCRSJobVO::getStatus, String::compareToIgnoreCase)
+//                )
+//                .collect( Collectors.toList() );
+//    }
 
-    public List<CCRSJob.CCRSJobVO> listJobsForClient(String clientId, boolean withResults) {
-        return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
-                .distinct()
-                .filter( j -> j.getClientId().equals( clientId ) )
-                .map( j -> j.toValueObject( true, withResults ) )
-                .sorted(
-                        Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
-                                .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
-                                .thenComparing(CCRSJob.CCRSJobVO::getSubmittedDate, Comparator.nullsLast(Date::compareTo).reversed())
-                                .thenComparing(CCRSJob.CCRSJobVO::getStatus, String::compareToIgnoreCase)
-                )
-                .collect( Collectors.toList() );
-    }
+//    public List<CCRSJob.CCRSJobVO> listJobsForClient(String clientId, boolean withResults) {
+//        return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
+//                .distinct()
+//                .filter( j -> j.getClientId().equals( clientId ) )
+//                .map( j -> j.toValueObject( true, withResults ) )
+//                .sorted(
+//                        Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))
+//                                .thenComparing(CCRSJob.CCRSJobVO::getPosition, Comparator.nullsLast(Integer::compareTo))
+//                                .thenComparing(CCRSJob.CCRSJobVO::getSubmittedDate, Comparator.nullsLast(Date::compareTo).reversed())
+//                                .thenComparing(CCRSJob.CCRSJobVO::getStatus, String::compareToIgnoreCase)
+//                )
+//                .collect( Collectors.toList() );
+//    }
 
     public List<CCRSJob.CCRSJobVO> listJobsForClientAndUser(String clientId, String userId, boolean withResults) {
-        return Stream.concat(jobQueueMirror.stream(), savedJobs.values().stream())
-                .distinct()
-                .filter( j -> j.getClientId().equals( clientId ) && j.getUserId().equals( userId ) )
+        return jobRepository.allJobsForClientAndUser( clientId, userId )
                 .map( j -> j.toValueObject( true, withResults ) )
                 .sorted(
                         Comparator.comparing(CCRSJob.CCRSJobVO::isComplete, Comparator.nullsLast(Boolean::compareTo))

@@ -36,21 +36,21 @@ public class QueueEndpoint {
         return ResponseEntity.ok( jobManager.getCompletionCount( clientId ) );
     }
 
-    @RequestMapping(value = "/public", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<List<CCRSJob.CCRSJobVO>> getJobs( @RequestParam(value = "withResults", defaultValue = "false") boolean withResults ) {
-        return ResponseEntity.ok( jobManager.listPublicJobs( withResults ) );
-    }
+//    @RequestMapping(value = "/public", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
+//    public ResponseEntity<List<CCRSJob.CCRSJobVO>> getJobs( @RequestParam(value = "withResults", defaultValue = "false") boolean withResults ) {
+//        return ResponseEntity.ok( jobManager.listPublicJobs( withResults ) );
+//    }
 
-    @RequestMapping(value = "/client/{clientId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<List<CCRSJob.CCRSJobVO>> getJobs( @PathVariable String clientId,
-                                            @RequestParam(value = "withResults", defaultValue = "false") boolean withResults ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String client = authentication.getName();
-        if ( !client.equals( clientId ) && !client.equals( "admin" ) ) {
-            return ResponseEntity.status( HttpStatus.UNAUTHORIZED ).body( new ArrayList<>() );
-        }
-        return ResponseEntity.ok( jobManager.listJobsForClient( clientId, withResults) );
-    }
+//    @RequestMapping(value = "/client/{clientId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
+//    public ResponseEntity<List<CCRSJob.CCRSJobVO>> getJobs( @PathVariable String clientId,
+//                                            @RequestParam(value = "withResults", defaultValue = "false") boolean withResults ) {
+//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+//        String client = authentication.getName();
+//        if ( !client.equals( clientId ) && !client.equals( "admin" ) ) {
+//            return ResponseEntity.status( HttpStatus.UNAUTHORIZED ).body( new ArrayList<>() );
+//        }
+//        return ResponseEntity.ok( jobManager.listJobsForClient( clientId, withResults) );
+//    }
 
     @RequestMapping(value = "/client/{clientId}/user/{userId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<List<CCRSJob.CCRSJobVO>> getJobs( @PathVariable String clientId, @PathVariable String userId,

@@ -115,12 +115,6 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
             this.running = false;
             this.complete = true;
 
-            // Write metadata to job folder
-            Path serializedJob = jobsDirectory.resolve( jobSerializationFilename );
-            try ( ObjectOutputStream oos = new ObjectOutputStream( Files.newOutputStream( serializedJob ) ) ) {
-                oos.writeObject( this );
-            }
-
         } catch ( ResultFileException e ) {
             log.error( e );
             this.finishedDate =  new Date();
