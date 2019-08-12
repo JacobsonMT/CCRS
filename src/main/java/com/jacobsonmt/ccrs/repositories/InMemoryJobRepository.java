@@ -6,7 +6,6 @@ import com.jacobsonmt.ccrs.model.CCRSJobResult;
 import com.jacobsonmt.ccrs.settings.ApplicationSettings;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -20,8 +19,11 @@ import java.util.stream.Stream;
 
 import static com.jacobsonmt.ccrs.model.CCRSJob.inputStreamToString;
 
+/**
+ * All jobs are cached in memory.
+ * Successfully completed jobs are persisted to disk.
+ */
 @Log4j2
-@Primary
 @Component
 public class InMemoryJobRepository implements JobRepository {
 

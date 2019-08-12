@@ -18,6 +18,7 @@ public class ApplicationSettings {
     private String jobSerializationFilename;
     private boolean loadJobsFromDisk;
 
+    private int maxCachedJobs = 1000;
     private int concurrentJobs = 1;
     private boolean purgeSavedJobs = true;
     private int purgeSavedJobsTimeHours = 1;
