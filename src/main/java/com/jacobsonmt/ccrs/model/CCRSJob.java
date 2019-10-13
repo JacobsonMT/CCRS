@@ -213,6 +213,9 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
     }
 
     public static String obfuscateEmail( String email ) {
+        if ( email == null ) {
+            return null;
+        }
         return email.replaceAll( "(\\w{0,3})(\\w+.*)(@.*)", "$1****$3" );
     }
 
