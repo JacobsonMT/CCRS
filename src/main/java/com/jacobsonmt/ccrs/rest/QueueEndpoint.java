@@ -63,6 +63,18 @@ public class QueueEndpoint {
         return ResponseEntity.ok( jobManager.listJobsForClientAndUser( clientId, userId, withResults) );
     }
 
+    @DeleteMapping("/client/{clientId}/user/{userId}/jobs/delete")
+    public ResponseEntity<String> stopJobs( @PathVariable String clientId, @PathVariable String userId ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String client = authentication.getName();
+        if ( !client.equals( clientId ) && !client.equals( "admin" ) ) {
+            return ResponseEntity.status( HttpStatus.UNAUTHORIZED ).body( "" );
+        }
+
+        jobManager.stopJobs( clientId, userId );
+        return ResponseEntity.accepted().body( "Jobs deleted for: " + userId ); // Could be 'OK' as well, this seems semantically safer
+    }
+
     @RequestMapping(value = "/mock", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
     public String createMockJobs() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

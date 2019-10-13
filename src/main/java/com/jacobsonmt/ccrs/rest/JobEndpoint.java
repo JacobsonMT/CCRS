@@ -42,14 +42,16 @@ public class JobEndpoint {
     private JobManager jobManager;
 
     @RequestMapping(value = "/{jobId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<CCRSJob.CCRSJobVO> getJob( @PathVariable String jobId) {
+    public ResponseEntity<CCRSJob.CCRSJobVO> getJob( @PathVariable String jobId,
+                                                     @RequestParam(value = "withResults", defaultValue = "true")
+                                                             boolean withResults ) {
         CCRSJob job = jobManager.getSavedJob( jobId );
 
         if ( job == null ) {
             return ResponseEntity.notFound().build();
         }
 
-        return ResponseEntity.ok( createJobValueObject( jobManager.getSavedJob( jobId ) ) );
+        return ResponseEntity.ok( createJobValueObject( jobManager.getSavedJob( jobId ), withResults ) );
     }
 
     @RequestMapping(value = "/{jobId}/status", method = RequestMethod.GET, produces = {MediaType.TEXT_PLAIN_VALUE})
@@ -176,11 +178,11 @@ public class JobEndpoint {
                 .body(content);
     }
 
-    private CCRSJob.CCRSJobVO createJobValueObject( CCRSJob job) {
+    private CCRSJob.CCRSJobVO createJobValueObject( CCRSJob job, boolean withResults ) {
         if ( job == null ) {
             return null;
         }
-        return job.toValueObject(true, true);
+        return job.toValueObject(true, withResults);
     }
 
     @Getter

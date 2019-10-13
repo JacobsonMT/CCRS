@@ -351,6 +351,13 @@ public class JobManager {
         return jobRepository.getById( jobId );
     }
 
+    public void stopJobs( String clientId, String userId ) {
+        List<CCRSJob> jobs = jobRepository.allJobsForClientAndUser( clientId, userId ).collect( Collectors.toList() );
+        for ( CCRSJob job : jobs ) {
+            stopJob( job );
+        }
+    }
+
     public void stopJob( CCRSJob job ) {
         log.info( "Requesting job stop (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ")" );
         // Start at the lowest queue and work our way up to minimize race conditions
