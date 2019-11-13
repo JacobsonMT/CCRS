@@ -131,6 +131,10 @@ public class JobEndpoint {
 
     @DeleteMapping("/{jobId}/delete")
     public ResponseEntity<String> stopJob( @PathVariable("jobId") String jobId) {
+        if ( jobId.equals( "example" ) ) {
+            return ResponseEntity.status( HttpStatus.NOT_FOUND ).body( "Job Not Found" );
+        }
+
         CCRSJob job = jobManager.getSavedJob( jobId );
 
         if ( job == null ) {
