@@ -71,8 +71,8 @@ public class QueueEndpoint {
             return ResponseEntity.status( HttpStatus.UNAUTHORIZED ).body( "" );
         }
 
-        jobManager.stopJobs( clientId, userId );
-        return ResponseEntity.accepted().body( "Jobs deleted for: " + userId ); // Could be 'OK' as well, this seems semantically safer
+        String res = jobManager.stopJobs( clientId, userId );
+        return ResponseEntity.accepted().body( res ); // Could be 'OK' as well, this seems semantically safer
     }
 
     @RequestMapping(value = "/mock", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})

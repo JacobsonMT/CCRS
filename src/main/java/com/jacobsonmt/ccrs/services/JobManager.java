@@ -351,11 +351,17 @@ public class JobManager {
         return jobRepository.getById( jobId );
     }
 
-    public void stopJobs( String clientId, String userId ) {
+    public String stopJobs( String clientId, String userId ) {
         List<CCRSJob> jobs = jobRepository.allJobsForClientAndUser( clientId, userId ).collect( Collectors.toList() );
+
+        if ( jobs.isEmpty() ) {
+            return "No jobs found for: " + userId;
+        }
+
         for ( CCRSJob job : jobs ) {
             stopJob( job );
         }
+        return "Jobs deleted for: " + userId;
     }
 
     public void stopJob( CCRSJob job ) {
