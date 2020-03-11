@@ -29,7 +29,7 @@ public class FASTASequence {
             .mapToObj( e -> ( char ) e ).collect( Collectors.toSet() );
 
     public static final int MINIMUM_SEQUENCE_SIZE = 26;
-    public static final int MAXIMUM_SEQUENCE_SIZE = 2000;
+    public static final int MAXIMUM_SEQUENCE_SIZE = 40000;
 
     public String getFASTAContent() {
         return ">" + header + '\n' + sequence + '\n';
