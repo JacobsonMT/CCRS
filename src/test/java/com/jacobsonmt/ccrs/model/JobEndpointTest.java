@@ -75,7 +75,7 @@ public class JobEndpointTest {
         builder.startedDate( new Date() );
         builder.finishedDate( new Date() );
         builder.inputFASTAContent( ">Example Header\nMQSGTHWRVLGLCLLSVGVWGQDGNEEMGGITQTPYKVSISGTTVILTCPQYPGSEILW\n" );
-        String resultCSV = "OX\t9749\n" + "AC\tPos\tRef\tDepth\tConservation\tA\tR\tN\tD\tC\tQ\tE\tG\tH\tI\tL\tK\tM\tF\tP\tS\tT\tW\tY\tV\n" +
+        String resultCSV = "OX\t9749\tHomo Sapiens Test\n" + "AC\tPos\tRef\tDepth\tConservation\tA\tR\tN\tD\tC\tQ\tE\tG\tH\tI\tL\tK\tM\tF\tP\tS\tT\tW\tY\tV\n" +
                 "sp|P07766|CD3E_\t1\tM\t41\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\t0\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\t0.785\n" +
                 "sp|P07766|CD3E_\t2\tQ\t7\t0.253307\t0.244276\t0.233177\t0.244276\t0.244276\t0.244276\t0\t0.317168\t0.244276\t0.281372\t0.244276\t0.232177\t0.30097\t0.244276\t0.244276\t0.272373\t0.244276\t0.244276\t0.244276\t0.244276\t0.244276";
         builder.result( CCRSJobResult.parseResultCSVStream( new ByteArrayInputStream(resultCSV.getBytes( StandardCharsets.UTF_8 )) ));
@@ -118,7 +118,8 @@ public class JobEndpointTest {
                 .andExpect( jsonPath( "$.inputFASTAContent", is( commonJob.getInputFASTAContent())))
                 .andExpect( jsonPath( "$.result.resultCSV", is( commonJob.getResult().getResultCSV())))
                 .andExpect( jsonPath( "$.result.taxa.key", is( commonJob.getResult().getTaxa().getKey())))
-                .andExpect( jsonPath( "$.result.taxa.id", is( commonJob.getResult().getTaxa().getId())));
+                .andExpect( jsonPath( "$.result.taxa.id", is( commonJob.getResult().getTaxa().getId())))
+                .andExpect( jsonPath( "$.result.taxa.name", is( commonJob.getResult().getTaxa().getName())));
 
     }
 

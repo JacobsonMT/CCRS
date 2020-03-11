@@ -35,16 +35,34 @@ public final class CCRSJobResult {
     public String getResultCSV() {
         StringBuilder sb = new StringBuilder();
         if ( taxa != null ) {
-            sb.append( taxa.getKey() + "\t" + taxa.getId() + "\n" );
+            if (taxa.getKey() != null && !taxa.getKey().isEmpty()) {
+                sb.append( taxa.getKey() );
+            } else {
+                sb.append( Taxa.KnownKeyTypes.malformed_OX );
+            }
+
+            sb.append( "\t" ).append( taxa.getId() );
+
+            if ( taxa.getName() != null && !taxa.getName().isEmpty() ) {
+                sb.append( "\t" ).append( taxa.getName() );
+            }
+
+            sb.append( "\n" );
         }
 
-        sb.append( String.join( "\t", HEADER ) + "\n" );
+        sb.append( String.join( "\t", HEADER ) ).append( "\n" );
 
         if ( bases != null) {
             int i = 1;
             for ( Base base : bases ) {
-                sb.append( accession + "\t" + i + "\t" + base.getReference() + "\t" + base.getDepth() + "\t" + base.getConservation() + "\t" );
-                sb.append( base.getList().stream().map( String::valueOf ).collect( Collectors.joining( "\t" )  ) + "\n" );
+                sb
+                        .append( accession ).append( "\t" )
+                        .append( i ).append( "\t" )
+                        .append( base.getReference() ).append( "\t" )
+                        .append( base.getDepth() ).append( "\t" )
+                        .append( base.getConservation() ).append( "\t" )
+                        .append( base.getList().stream().map( String::valueOf ).collect( Collectors.joining( "\t" ) ) )
+                        .append( "\n" );
                 i++;
             }
         }
@@ -63,6 +81,7 @@ public final class CCRSJobResult {
         // Parse first line
         int tid = -1;
         String tkey = "";
+        String tname = "";
         List<Base> sequence = new ArrayList<>();
         String accession = "";
         boolean foundHeader = false;
@@ -78,7 +97,11 @@ public final class CCRSJobResult {
             if ( line != null ) {
                 String[] sline = line.split( "\t" );
 
-                if ( sline.length == 2 ) {
+                if ( sline.length == 1 ) {
+                    tkey = Taxa.KnownKeyTypes.malformed_OX.name();
+                }
+
+                if ( sline.length > 1 ) {
                     tkey = sline[0];
                     try {
                         tid = Integer.parseInt( sline[1] );
@@ -86,9 +109,16 @@ public final class CCRSJobResult {
                         log.warn( "Server Error: Malformed result file taxa line: " + line );
                         tid = -1;
                     }
-                } else {
+                }
+
+                if (sline.length > 2) {
+                    tname = sline[2];
+                }
+
+                if (sline.length > 3) {
                     log.warn( "Server Error: Malformed or missing result file taxa line: " + line );
                     tid = -1;
+                    tname = "";
 
                     // Is this is the header line?
                     if ( Arrays.equals(sline, HEADER) ) {
@@ -108,6 +138,17 @@ public final class CCRSJobResult {
                 // is this the header?
                 if ( Arrays.equals( sline, HEADER ) ) {
                     foundHeader = true;
+                } else {
+                    try {
+                        Base base = mapBase( sline );
+
+                        // There was no header
+                        accession = sline[0];
+                        sequence.add( base );
+                        foundHeader = true;
+                    } catch ( Exception e ) {
+                        // Not a base line, keep looking for header
+                    }
                 }
             }
 
@@ -131,7 +172,7 @@ public final class CCRSJobResult {
             throw new ResultFileException( "Server Error: Something went wrong parsing the result file" );
         }
 
-        return new CCRSJobResult( new Taxa( tkey, tid ), accession, sequence );
+        return new CCRSJobResult( new Taxa( tkey, tid, tname ), accession, sequence );
     }
 
     private static Base mapBase(String[] splitLine ) {

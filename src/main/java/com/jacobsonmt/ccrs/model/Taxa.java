@@ -8,19 +8,16 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 public class Taxa {
-    public static enum KnownKeyTypes {
+    public enum KnownKeyTypes {
         OX,
         missing_OX,
         malformed_OX,
-        invalid_OX,
-        virus_OX,
+        Invalid_OX,
+        Virus_OX,
+        Invalid_OX_format
     }
 
     private final String key;
     private final int id;
-
-    public Taxa( int id ) {
-        this.key = KnownKeyTypes.OX.name();
-        this.id = id;
-    }
+    private final String name;
 }
