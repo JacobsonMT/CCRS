@@ -217,6 +217,7 @@ public class JobManager {
             for ( CCRSJob job : jobQueueMirror ) {
                 if ( job.getClientId().equals( clientId ) ) cnt++;
             }
+            log.debug( "Found {} existing jobs for client {} in processing queue", cnt, clientId);
         }
 
         if ( cnt < clientSettings.getClients().get( clientId ).getProcessLimit() ) {
@@ -242,20 +243,23 @@ public class JobManager {
      * @param job
      */
     private void submitToClientQueue( CCRSJob job ) {
-        log.info( "Submitting job (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ") to client queue" );
 
         Queue<CCRSJob> jobs = clientQueues.computeIfAbsent( job.getClientId(), k -> new LinkedList<>() );
 
+        log.debug( "Found {} existing jobs for client {} in client queue", jobs.size(), job.getClientId());
+
         if ( jobs.size() > clientSettings.getClients().get( job.getClientId() ).getJobLimit() ) {
-            log.info( "Too many jobs (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ")");
+            log.info( "Too many jobs in client queue, failed to submit job ({}) for client-user: ({})",
+                    job.getJobId(), userQueueKey(job));
             return;
         }
 
         synchronized ( jobs ) {
 
             if ( !jobs.contains( job ) ) {
+                log.info( "Submitting job (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ") to client queue" );
                 jobs.add( job );
-                job.setStatus( "Pending..." );
+                job.setStatus( "Queued..." );
                 submitTopOfClientQueue( job.getClientId() );
             }
         }
@@ -284,6 +288,8 @@ public class JobManager {
                     for ( CCRSJob j : clientQueue ) {
                         if ( j.getUserId().equals( job.getUserId() ) ) cnt++;
                     }
+                    log.debug( "Found {} existing jobs for user {} in client queue {}", cnt, job.getUserId(),
+                            job.getClientId() );
                 }
 
                 if ( cnt < clientSettings.getClients().get( job.getClientId() ).getUserClientLimit() ) {
@@ -291,6 +297,9 @@ public class JobManager {
                         job = jobs.poll();
                     }
                     submitToClientQueue( job );
+                } else {
+                    log.debug( "Too many jobs in client queue for user ({}), failed to submit job ({}) for " +
+                                    "client-user: ({})", job.getUserId(), job.getJobId(), userQueueKey(job));
                 }
             }
         }
@@ -302,20 +311,22 @@ public class JobManager {
      * @param job
      */
     private void submitToUserQueue( CCRSJob job ) {
-        log.info( "Submitting job (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ") to user queue" );
-
         Queue<CCRSJob> jobs = userQueues.computeIfAbsent( userQueueKey(job), k -> new LinkedList<>() );
 
+        log.debug( "Found {} existing jobs for user {} in user queue", jobs.size(), job.getUserId());
+
         if ( jobs.size() > clientSettings.getClients().get( job.getClientId() ).getUserJobLimit() ) {
-            log.info( "Too many jobs (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ")");
+            log.info( "Too many jobs in user queue, failed to submit job ({}) for client-user: ({})",
+                    job.getJobId(), userQueueKey(job));
             return;
         }
 
         synchronized ( jobs ) {
 
             if ( !jobs.contains( job ) ) {
+                log.info( "Submitting job (" + job.getJobId() + ") for client-user: (" + userQueueKey(job) + ") to user queue" );
                 jobs.add( job );
-                job.setStatus( "Pending" );
+                job.setStatus( "Pending..." );
                 jobRepository.cacheJob( job );
                 submitTopOfUserQueue( userQueueKey(job) );
             }

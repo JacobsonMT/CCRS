@@ -24,9 +24,25 @@ public class ClientSettings {
 
         private String name;
         private String token;
+
+        /**
+         * Maximum number of jobs a client can have in the processing queue
+         */
         private int processLimit = 2;
+
+        /**
+         * Maximum number of jobs a client can have in total (processing + client queue + user queue)
+         */
         private int jobLimit = 100;
+
+        /**
+         * Maximum number of jobs a user can have in the client queue
+         */
         private int userClientLimit = 1;
+
+        /**
+         * Maximum number of jobs a user can have in total (processing + client queue + user queue)
+         */
         private int userJobLimit = 20;
 
     }
