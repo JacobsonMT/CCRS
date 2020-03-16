@@ -107,8 +107,13 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
             this.result = CCRSJobResult.parseResultCSVStream( Files.newInputStream( jobsDirectory.resolve( outputCSVFilename ) ) );
             if ( this.result.getTaxa().getKey().equals( Taxa.KnownKeyTypes.OX.name() ) ) {
                 this.status = "Completed in " + executionTime + "s";
+            } else if ( this.result.getTaxa().getKey().equals( Taxa.KnownKeyTypes.malformed_OX.name() ) ||
+                    this.result.getTaxa().getKey().equals( Taxa.KnownKeyTypes.missing_OX.name() )) {
+                // FIXME: Improve this
+                log.warn( "Unexpected Taxa Line Key: {}", this.result.getTaxa().getKey() );
+                throw new ResultFileException( "Unexpected Error - Failed To Process" );
             } else {
-                this.status = this.result.getTaxa().getKey();
+                throw new ResultFileException( this.result.getTaxa().getKey() );
             }
 
             log.info( "Finished job (" + label + ") for client: (" + clientId + ")" );
@@ -117,27 +122,25 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
 
         } catch ( ResultFileException e ) {
             log.error( e );
-            this.finishedDate =  new Date();
-            this.result = CCRSJobResult.createNullResult();
-            this.complete = true;
-            this.running = false;
-            this.failed = true;
-            this.status = e.getMessage();
+            fail( e.getMessage() );
         } catch ( Exception e ) {
             log.error( e );
-            this.finishedDate =  new Date();
-            this.result = CCRSJobResult.createNullResult();
-            this.complete = true;
-            this.running = false;
-            this.failed = true;
-            this.status = "Failed after " + executionTime + "s";
+            fail( "Failed after " + executionTime + "s" );
         }
-
 
         jobManager.onJobComplete( this );
         jobManager = null;
         return this.result;
 
+    }
+
+    private void fail(String status) {
+        this.finishedDate =  new Date();
+        this.result = CCRSJobResult.createNullResult();
+        this.complete = true;
+        this.running = false;
+        this.failed = true;
+        this.status = status;
     }
 
     private static String executeCommand( String[] command, Path path ) {
