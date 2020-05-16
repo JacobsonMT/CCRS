@@ -286,8 +286,7 @@ public class JobEndpointTest {
             .content( OBJECT_MAPPER.writeValueAsString(jobSubmissionContent) ))
             .andExpect( status().isOk() )
             .andExpect( jsonPath( "$.totalRequestedJobs", is(4)))
-            .andExpect( jsonPath( "$.acceptedJobs", hasSize(2)))
-            .andExpect( jsonPath( "$.rejectedJobHeaders", hasSize(1)))
+            .andExpect( jsonPath( "$.rejectedJobHeaders", hasSize(2)))
             .andExpect( jsonPath( "$.rejectedJobHeaders", containsInAnyOrder("P07766-1 OX=9606", "P07766-3 OX=9606")));
     }
 
