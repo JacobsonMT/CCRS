@@ -26,28 +26,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.util.Strings;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Log4j2
 @Service
 public class JobManager {
 
-    @Autowired
-    ApplicationSettings applicationSettings;
+    private final ApplicationSettings applicationSettings;
 
-    @Autowired
-    ClientSettings clientSettings;
+    private final ClientSettings clientSettings;
 
-    @Autowired
-    EmailService emailService;
+    private final EmailService emailService;
 
-    @Autowired
-    JobRepository jobRepository;
+    private final JobRepository jobRepository;
 
     // Main executor to process jobs
+    @Setter
     private ExecutorService executor;
 
     // Contains a copy of the processing queue of jobs internal to executor.
@@ -60,6 +57,15 @@ public class JobManager {
 
     // Tertiary user queues or waiting lines. One specific to each user in each client.
     private Map<String, Queue<CCRSJob>> userQueues = new ConcurrentHashMap<>();
+
+    public JobManager(
+        ApplicationSettings applicationSettings, ClientSettings clientSettings, EmailService emailService,
+        JobRepository jobRepository) {
+        this.applicationSettings = applicationSettings;
+        this.clientSettings = clientSettings;
+        this.emailService = emailService;
+        this.jobRepository = jobRepository;
+    }
 
     private static String userQueueKey(CCRSJob job) {
         return job.getClientId() + "-" + job.getUserId();
@@ -258,7 +264,7 @@ public class JobManager {
 
         log.debug( "Found {} existing jobs for client {} in client queue", jobs.size(), job.getClientId());
 
-        if ( jobs.size() > clientSettings.getClients().get( job.getClientId() ).getJobLimit() ) {
+        if ( jobs.size() >= clientSettings.getClients().get( job.getClientId() ).getJobLimit() ) {
             log.info( "Too many jobs in client queue, failed to submit job ({}) for client-user: ({})",
                     job.getJobId(), userQueueKey(job));
             return;
@@ -320,15 +326,15 @@ public class JobManager {
      *
      * @param job
      */
-    private void submitToUserQueue( CCRSJob job ) {
+    private String submitToUserQueue( CCRSJob job ) {
         Queue<CCRSJob> jobs = userQueues.computeIfAbsent( userQueueKey(job), k -> new LinkedList<>() );
 
         log.debug( "Found {} existing jobs for user {} in user queue", jobs.size(), job.getUserId());
 
-        if ( jobs.size() > clientSettings.getClients().get( job.getClientId() ).getUserJobLimit() ) {
+        if ( jobs.size() >= clientSettings.getClients().get( job.getClientId() ).getUserJobLimit() ) {
             log.info( "Too many jobs in user queue, failed to submit job ({}) for client-user: ({})",
                     job.getJobId(), userQueueKey(job));
-            return;
+            return "Too many jobs";
         }
 
         synchronized ( jobs ) {
@@ -341,6 +347,7 @@ public class JobManager {
                 submitTopOfUserQueue( userQueueKey(job) );
             }
         }
+        return "";
     }
 
     /**
@@ -363,9 +370,7 @@ public class JobManager {
             }
         }
 
-        submitToUserQueue( job );
-
-        return "";
+        return submitToUserQueue( job );
     }
 
     public CCRSJob getSavedJob( String jobId ) {

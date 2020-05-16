@@ -1,11 +1,41 @@
-package com.jacobsonmt.ccrs.model;
+package com.jacobsonmt.ccrs.rest;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jacobsonmt.ccrs.model.CCRSJob;
+import com.jacobsonmt.ccrs.model.CCRSJobResult;
+import com.jacobsonmt.ccrs.model.FASTASequence;
+import com.jacobsonmt.ccrs.rest.JobEndpoint.JobSubmissionContent;
 import com.jacobsonmt.ccrs.services.JobManager;
 import com.jacobsonmt.ccrs.settings.ClientSettings;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Set;
+import java.util.TimeZone;
+import org.assertj.core.util.Lists;
 import org.assertj.core.util.Maps;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -17,18 +47,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.TimeZone;
-
-import static org.hamcrest.CoreMatchers.is;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @RunWith( SpringRunner.class )
 @WebMvcTest
@@ -55,6 +73,8 @@ public class JobEndpointTest {
     private CCRSJob commonJob;
 
     private SimpleDateFormat jacksonDateFormat;
+
+    private static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Before
     public void setUp() {
@@ -88,6 +108,17 @@ public class JobEndpointTest {
         given( clientSettings.getClients() ).willReturn( Maps.newHashMap("testclient", client ));
 
         given( jobManager.getSavedJob( commonJob.getJobId() ) ).willReturn( commonJob );
+
+        when(jobManager.createJobs(anyString(), anyString(), anyString(), anySet(), anyString(), anyBoolean(), anyString(),
+            anyBoolean(), anyBoolean(), anyBoolean())).thenAnswer((Answer<List<CCRSJob>>) invocation -> {
+            Object[] args = invocation.getArguments();
+            Set<FASTASequence> sequences = (Set< FASTASequence >) args[3];
+            List<CCRSJob> ans = Lists.newArrayList();
+            for (int i = 0; i < sequences.size(); i++) {
+                ans.add(mock(CCRSJob.class));
+            }
+            return ans;
+        });
 
         jacksonDateFormat = new SimpleDateFormat( ctx.getEnvironment().getProperty( "spring.jackson.date-format" ) );
         jacksonDateFormat.setTimeZone( TimeZone.getTimeZone( ctx.getEnvironment().getProperty( "spring.jackson.time-zone" ) ));
@@ -172,17 +203,93 @@ public class JobEndpointTest {
                 .andExpect( status().isForbidden() );
     }
 
-//    /* Submit */
-//
-//    @Test
-//    public void whenSubmitSingleJob_thenReturnEmptyMessage() throws Exception {
-//        mvc.perform( post( "/api/job/submit" )
-//                .contentType( MediaType.APPLICATION_JSON )
-//                .header( "auth_token", "testclienttoken" )
-//                .header( "client", "testclient" )
-//                .content(  ))
-//                .andExpect( status().isOk() )
-//                .andExpect( jsonPath( "$", is( commonJob.getStatus())));
-//    }
+/* Submit */
+
+    @Test
+    public void whenSubmitSingleValidJob_thenReturnValidResponse() throws Exception {
+        JobSubmissionContent jobSubmissionContent =  new JobSubmissionContent(
+        "label",
+        "userId",
+        ">P07766 OX=9606\nMQSGTHWRVLGLCLLSVGVWGQDGNEEMGGITQTPYKVSISGTTVILTCPQYPGSEILWQHNDKNI\n",
+        false,
+        "",
+        "emailJobLinkPrefix"
+        );
+
+        doReturn("").when(jobManager)
+            .submit(any());
+
+        mvc.perform( post( "/api/job/submit" )
+                .contentType( MediaType.APPLICATION_JSON )
+                .header( "auth_token", "testclienttoken" )
+                .header( "client", "testclient" )
+                .content( OBJECT_MAPPER.writeValueAsString(jobSubmissionContent) ))
+                .andExpect( status().isOk() )
+                .andExpect( jsonPath( "$.totalRequestedJobs", is(1)))
+                .andExpect( jsonPath( "$.acceptedJobs", hasSize(1)))
+                .andExpect( jsonPath( "$.rejectedJobHeaders", hasSize(0)));
+    }
+
+    @Test
+    public void whenSubmitMultipleValidJobs_thenReturnValidResponse() throws Exception {
+        StringBuilder fastaBuilder = new StringBuilder();
+        fastaBuilder.append(">P07766-1 OX=9606\nMQSGTHWRVLGLCLLSVGVWGQDGNEEMGGITQTPYKVSISGTTVILTCPQYPGSEILWQHNDKNI\n");
+        fastaBuilder.append(">P07766-2 OX=9606\nMQSGTHWRVLGLCLLSVGVWGQDGNEEMGGITQTPYKVSISGTTVILTCPQYPGSEILWQHNDKNI\n");
+        fastaBuilder.append(">P07766-3 OX=9606\nMQSGTHWRVLGLCLLSVGVWGQDGNEEMGGITQTPYKVSISGTTVILTCPQYPGSEILWQHNDKNI\n");
+        fastaBuilder.append(">P07766-4 OX=9606\nMQSGTHWRVLGLCLLSVGVWGQDGNEEMGGITQTPYKVSISGTTVILTCPQYPGSEILWQHNDKNI\n");
+        JobSubmissionContent jobSubmissionContent =  new JobSubmissionContent(
+            "label",
+            "userId",
+            fastaBuilder.toString(),
+            false,
+            "",
+            "emailJobLinkPrefix"
+        );
+
+        doReturn("").when(jobManager)
+            .submit(any());
+
+        mvc.perform( post( "/api/job/submit" )
+            .contentType( MediaType.APPLICATION_JSON )
+            .header( "auth_token", "testclienttoken" )
+            .header( "client", "testclient" )
+            .content( OBJECT_MAPPER.writeValueAsString(jobSubmissionContent) ))
+            .andExpect( status().isOk() )
+            .andExpect( jsonPath( "$.totalRequestedJobs", is(4)))
+            .andExpect( jsonPath( "$.acceptedJobs", hasSize(4)))
+            .andExpect( jsonPath( "$.rejectedJobHeaders", hasSize(0)));
+    }
+
+    @Test
+    public void whenSubmitMixedValidJobs_thenReturnValidResponse() throws Exception {
+        StringBuilder fastaBuilder = new StringBuilder();
+        fastaBuilder.append(">P07766-1 OX=9606\nMQSGTHWRVLGLCLLSVGVWGQDGNEEMGGITQTPYKVSISGTTVILTCPQYPGSEILWQHNDKNI\n");
+        fastaBuilder.append(">P07766-1 OX=9606\nMQSGTHWRVLGLCLLSVGVWGQDGNEEMGGITQTPYKVSISGTTVILTCPQYPGSEILWQHNDKNI\n");
+        fastaBuilder.append(">P07766-3 OX=9606\nMQSGTHWRVLG\n");
+        fastaBuilder.append(">P07766-4 OX=9606\nMQSGTHWRVLGLCLLSVGVWGQDGNEEMGGITQTPYKVSISGTTVILTCPQYPGSEILWQHNDKNI\n");
+        JobSubmissionContent jobSubmissionContent =  new JobSubmissionContent(
+            "label",
+            "userId",
+            fastaBuilder.toString(),
+            false,
+            "",
+            "emailJobLinkPrefix"
+        );
+
+        doReturn("").when(jobManager)
+            .submit(any());
+
+        mvc.perform( post( "/api/job/submit" )
+            .contentType( MediaType.APPLICATION_JSON )
+            .header( "auth_token", "testclienttoken" )
+            .header( "client", "testclient" )
+            .content( OBJECT_MAPPER.writeValueAsString(jobSubmissionContent) ))
+            .andExpect( status().isOk() )
+            .andExpect( jsonPath( "$.totalRequestedJobs", is(4)))
+            .andExpect( jsonPath( "$.acceptedJobs", hasSize(2)))
+            .andExpect( jsonPath( "$.rejectedJobHeaders", hasSize(1)))
+            .andExpect( jsonPath( "$.rejectedJobHeaders", containsInAnyOrder("P07766-1 OX=9606", "P07766-3 OX=9606")));
+    }
+
 
 }

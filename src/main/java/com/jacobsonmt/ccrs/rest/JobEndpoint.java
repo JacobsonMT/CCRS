@@ -5,12 +5,17 @@ import com.jacobsonmt.ccrs.model.CCRSJob;
 import com.jacobsonmt.ccrs.model.FASTASequence;
 import com.jacobsonmt.ccrs.model.Message;
 import com.jacobsonmt.ccrs.services.JobManager;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import javax.validation.Valid;
+import javax.validation.constraints.Email;
+import javax.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -19,14 +24,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
-import org.springframework.web.bind.annotation.*;
-
-import javax.validation.Valid;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotBlank;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Endpoints to access and submit jobs.
@@ -38,8 +43,16 @@ import java.util.Set;
 @RestController
 public class JobEndpoint {
 
-    @Autowired
-    private JobManager jobManager;
+    private final JobManager jobManager;
+
+    public JobEndpoint(JobManager jobManager) {
+        this.jobManager = jobManager;
+    }
+
+    protected String getClient() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication.getName();
+    }
 
     @RequestMapping(value = "/{jobId}", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<CCRSJob.CCRSJobVO> getJob( @PathVariable String jobId,
@@ -68,8 +81,7 @@ public class JobEndpoint {
     @RequestMapping(value = "/submit", method = RequestMethod.POST, produces = {MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<JobSubmissionResponse> submitJob( @Valid @RequestBody JobSubmissionContent jobSubmissionContent, BindingResult errors ) {
         // NOTE: You must declare an Errors, or BindingResult argument immediately after the validated method argument.
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String client = authentication.getName();
+        String client = getClient();
 
         JobSubmissionResponse result = new JobSubmissionResponse();
 
@@ -103,9 +115,14 @@ public class JobEndpoint {
                 );
 
                 for ( CCRSJob job : jobs ) {
-                    String rejectedMsg = jobManager.submit( job );
-                    if ( rejectedMsg.isEmpty() ) {
-                        result.addAcceptedJob( job );
+                    if (!job.isFailed()) {
+                        String rejectedMsg = jobManager.submit(job);
+                        if (rejectedMsg.isEmpty()) {
+                            result.addAcceptedJob(job);
+                        } else {
+                            result.addRejectedHeader( job.getLabel() );
+                            result.addMessage( new Message( Message.MessageLevel.WARNING, rejectedMsg + " for '" + job.getLabel() + "'" ) );
+                        }
                     }
                 }
 
@@ -191,7 +208,7 @@ public class JobEndpoint {
 
     @Getter
     @AllArgsConstructor
-    private static final class JobSubmissionContent {
+    protected static final class JobSubmissionContent {
         private final String label;
         @NotBlank(message = "User missing!")
         private final String userId;
