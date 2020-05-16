@@ -1,8 +1,9 @@
 package com.jacobsonmt.ccrs.rest;
 
 import com.jacobsonmt.ccrs.model.CCRSJob;
-import com.jacobsonmt.ccrs.model.FASTASequence;
 import com.jacobsonmt.ccrs.services.JobManager;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -10,10 +11,12 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @Log4j2
 @RequestMapping("/api/queue")
@@ -73,31 +76,6 @@ public class QueueEndpoint {
 
         String res = jobManager.stopJobs( clientId, userId );
         return ResponseEntity.accepted().body( res ); // Could be 'OK' as well, this seems semantically safer
-    }
-
-    @RequestMapping(value = "/mock", method = RequestMethod.GET, produces = {MediaType.APPLICATION_JSON_VALUE})
-    public String createMockJobs() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String client = authentication.getName();
-        if ( client.equals( "admin" ) ) {
-            for ( int i = 0; i < 5; i++ ) {
-                for ( int j = 0; j < 5; j++ ) {
-                    CCRSJob job = jobManager.createJob( "client" + (1 + i % 2),
-                            "user" + j,
-                            i + "label" + j,
-                            new FASTASequence( "Mock Header", i + " fasta content " + j, "" ) ,
-                            i + "email" + j,
-                            i % 3 == 0,
-                            "",
-                            false,
-                            false,
-                            false );
-                    jobManager.submit( job );
-                }
-            }
-            return "Success";
-        }
-        return "Failure";
     }
 
 }
