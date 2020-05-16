@@ -314,7 +314,7 @@ public class JobManager {
                     }
                     submitToClientQueue( job );
                 } else {
-                    log.debug( "Too many jobs in client queue for user ({}), failed to submit job ({}) for " +
+                    log.debug( "Too many jobs in client queue for user ({}), failed to promote job ({}) for " +
                                     "client-user: ({})", job.getUserId(), job.getJobId(), userQueueKey(job));
                 }
             }

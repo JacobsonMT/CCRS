@@ -41,7 +41,7 @@ public class ClientSettings {
         private int userClientLimit = 1;
 
         /**
-         * Maximum number of jobs a user can have in total (processing + client queue + user queue)
+         * Maximum number of jobs a user can have in their user queue
          */
         private int userJobLimit = 20;
 

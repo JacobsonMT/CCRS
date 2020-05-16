@@ -74,7 +74,7 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
 
         try {
 
-            log.info( "Starting job (" + label + ") for client: (" + clientId + ")" );
+            log.info( "Starting job ({}) with label ({}) for client: ({})", jobId, label, clientId );
 
             this.running = true;
             this.status = "Processing";
@@ -89,7 +89,7 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
             // Write content to input
 
             Path fastaFile = jobsDirectory.resolve( inputFASTAFilename );
-            try ( BufferedWriter writer = Files.newBufferedWriter( fastaFile, Charset.forName( "UTF-8" ) ) ) {
+            try ( BufferedWriter writer = Files.newBufferedWriter( fastaFile, StandardCharsets.UTF_8) ) {
                 writer.write( inputFASTAContent );
             }
 
@@ -110,13 +110,13 @@ public class CCRSJob implements Callable<CCRSJobResult>, Serializable {
             } else if ( this.result.getTaxa().getKey().equals( Taxa.KnownKeyTypes.malformed_OX.name() ) ||
                     this.result.getTaxa().getKey().equals( Taxa.KnownKeyTypes.missing_OX.name() )) {
                 // FIXME: Improve this
-                log.warn( "Unexpected Taxa Line Key: {}", this.result.getTaxa().getKey() );
+                log.warn( "Unexpected Taxa Line Key ({}) for job ({})", this.result.getTaxa().getKey(), jobId );
                 throw new ResultFileException( "Unexpected Error - Failed To Process" );
             } else {
                 throw new ResultFileException( this.result.getTaxa().getKey() );
             }
 
-            log.info( "Finished job (" + label + ") for client: (" + clientId + ")" );
+            log.info( "Finished job ({}) with label ({}) for client: ({})", jobId, label, clientId );
             this.running = false;
             this.complete = true;
 
