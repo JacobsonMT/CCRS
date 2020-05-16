@@ -6,20 +6,30 @@ import com.jacobsonmt.ccrs.model.FASTASequence;
 import com.jacobsonmt.ccrs.repositories.JobRepository;
 import com.jacobsonmt.ccrs.settings.ApplicationSettings;
 import com.jacobsonmt.ccrs.settings.ClientSettings;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.MailSendException;
 import org.springframework.stereotype.Service;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.mail.MessagingException;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 @Log4j2
 @Service
@@ -348,7 +358,7 @@ public class JobManager {
         if ( job.isEmailOnJobSubmitted() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
             try {
                 emailService.sendJobSubmittedMessage( job );
-            } catch ( MessagingException | MailSendException e ) {
+            } catch ( Exception e ) {
                 log.warn( e );
             }
         }
@@ -426,7 +436,7 @@ public class JobManager {
         if ( job.isEmailOnJobStart() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
             try {
                 emailService.sendJobStartMessage( job );
-            } catch ( MessagingException | MailSendException e ) {
+            } catch ( Exception e ) {
                 log.warn( e );
             }
         }
@@ -449,7 +459,7 @@ public class JobManager {
         if ( job.isEmailOnJobComplete() && job.getEmail() != null && !job.getEmail().isEmpty() ) {
             try {
                 emailService.sendJobCompletionMessage( job );
-            } catch ( MessagingException | MailSendException e ) {
+            } catch ( Exception e ) {
                 log.warn( e );
             }
         }
